@@ -1,5 +1,24 @@
 # CLEVR-Robot Environment
 
+## Installation
+
+## On a cluster
+```
+module load python/3.10
+export MUJOCO_GL="egl"
+virtualenv <path_to_your_virtual_env>
+source <path_to_your_virtual_env>/bin/activate
+pip install -r requirements.txt
+```
+
+## Locally
+Just make sure that you have python/3.10
+```
+virtualenv <path_to_your_virtual_env>
+source <path_to_your_virtual_env>/bin/activate
+pip install -r requirements.txt
+```
+
 ## Overview
 
 The CLEVR-Robot environment is a reinforcement learning environment that aims to
