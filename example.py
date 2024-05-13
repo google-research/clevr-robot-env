@@ -22,7 +22,7 @@ from __future__ import print_function
 from absl import app
 from absl import flags
 
-from clevr_robot_env import ClevrEnv
+from env import ClevrEnv
 
 FLAGS = flags.FLAGS
 
