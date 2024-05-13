@@ -27,3 +27,4 @@ tqdm==4.66.4
 typing_extensions==4.11.0
 urllib3==2.2.1
 zipp==3.18.1
+matplotlib==3.8.4
