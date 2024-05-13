@@ -32,15 +32,12 @@ from third_party.clevr_robot_env_utils.generate_question import generate_questio
 import third_party.clevr_robot_env_utils.generate_scene as gs
 import third_party.clevr_robot_env_utils.question_engine as qeng
 
-from clevr_robot_env.utils import load_utils
-from clevr_robot_env.utils.xml_utils import convert_scene_to_xml
+from utils import load_utils
+from utils.xml_utils import convert_scene_to_xml
 
-try:
-  import cv2
-  import clevr_robot_env.mujoco_env as mujoco_env  # custom mujoco_env
-  from dm_control import mujoco
-except ImportError as e:
-  print(e)
+import cv2
+import mujoco_env as mujoco_env  # custom mujoco_env
+from dm_control import mujoco
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 
