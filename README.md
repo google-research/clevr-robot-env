@@ -5,7 +5,7 @@
 ## On a cluster
 ```
 module load python/3.10
-export MUJOCO_GL="egl"
+export MUJOCO_GL="osmesa"
 virtualenv <path_to_your_virtual_env>
 source <path_to_your_virtual_env>/bin/activate
 pip install -r requirements.txt
