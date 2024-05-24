@@ -126,7 +126,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
     for dx, dy in directions:
       new_x = last_x + dx
       new_y = last_y + dy
-      if is_within_bounds(new_x, new_y, min_dist, max_dist):
+      if is_within_bounds(new_x, new_y, min_dist - r, max_dist - r):
         break
         
     positions.append((new_x, new_y, r))
