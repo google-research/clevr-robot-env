@@ -65,11 +65,84 @@ def generate_scene_struct(c2w, num_object=3, metadata=None):
   scene_struct['directions']['below'] = -plane_up
 
   # Now make some random objects
-  objects = add_random_objects(scene_struct, num_object, metadata=metadata)
+  # objects = add_random_objects(scene_struct, num_object, metadata=metadata)
+  objects = add_objects_grid(num_object, -0.5, 0.5)
   scene_struct['objects'] = objects
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct
 
+def is_within_bounds(x, y, min_dist, max_dist):
+  return min_dist <= abs(x) <= max_dist and min_dist <= abs(y) <= max_dist
+
+def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
+  positions = []
+  objects = []
+  
+  # size_mapping = [('small', 0.07), ('medium', 0.1), ('large', 0.13)]
+  size_mapping = [('large', 0.1)]
+  # shape_mapping = [('sphere', 'sphere'), ('box', 'cube'),
+  #                  ('cylinder', 'cylinder')]
+  shape_mapping = [('sphere', 'sphere')]
+  color_mapping = [('red', '1 0.1 0.1 1'), ('blue', '0.2 0.5 1 1'),
+                    ('green', '0.2 1 0 1'), ('purple', '0.8 0.2 1 1'),
+                    ('cyan', '0.2 1 1 1')]
+  material_mapping = ['rubber']
+  
+  # Directions: (+x, -x, +y, -y)
+  directions = [(0.2, 0), (-0.2, 0), (0, 0.2), (0, -0.2)]
+
+  # Place the first object randomly within bounds
+  x = random.uniform(min_dist, max_dist)
+  y = random.uniform(min_dist, max_dist)
+  
+  for i in range(num_objects):
+    size_name, r = random.choice(size_mapping)
+    shape_name, shape = random.choice(shape_mapping)
+    if not metadata:
+      color_name, color = color_mapping[i]
+    else:
+      color_name, color = random.choice(color_mapping)
+    mat_name = random.choice(material_mapping)
+    
+    # First object
+    if i == 0:
+      positions.append((x, y, r))
+      theta = 360.0 * random.random()
+      objects.append({
+          'shape': shape,
+          'shape_name': shape_name,
+          'size': size_name,
+          '3d_coords': (x, y, r),
+          'color_val': color,
+          'color': color_name,
+          'rotation': theta,
+          'material': mat_name,
+      })
+      continue
+      
+    last_x, last_y, _ = positions[-1]
+    random.shuffle(directions)
+
+    for dx, dy in directions:
+      new_x = last_x + dx
+      new_y = last_y + dy
+      if is_within_bounds(new_x, new_y, min_dist, max_dist):
+        break
+        
+    positions.append((new_x, new_y, r))
+    theta = 360.0 * random.random()
+    objects.append({
+      'shape': shape,
+      'shape_name': shape_name,
+      'size': size_name,
+      '3d_coords': (new_x, new_y, r),
+      'color_val': color,
+      'color': color_name,
+      'rotation': theta,
+      'material': mat_name,
+    })
+
+  return objects
 
 def add_random_objects(scene_struct,
                        num_objects,

@@ -21,6 +21,7 @@ from __future__ import print_function
 
 from absl import app
 from absl import flags
+from matplotlib import pyplot as PLT
 
 from env import ClevrEnv
 
@@ -29,7 +30,12 @@ FLAGS = flags.FLAGS
 
 def main(_):
   env = ClevrEnv()
-  env.step(env.sample_random_action())
+  
+  rgb = env.render(mode='rgb_array')
+  PLT.imshow(rgb)
+  PLT.show()
+  
+  # env.step(env.sample_random_action())
 
 if __name__ == '__main__':
   app.run(main)
