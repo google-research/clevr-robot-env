@@ -71,6 +71,13 @@ def generate_scene_struct(c2w, num_object=3, metadata=None):
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct
 
+def no_overlap(new_x, new_y, positions, radius):
+  for x, y, _ in positions:
+    distance = math.sqrt((new_x - x) ** 2 + (new_y - y) ** 2)
+    if distance < 2 * radius:
+      return False
+  return True
+
 def is_within_bounds(x, y, min_dist, max_dist):
   return min_dist <= x <= max_dist and min_dist <= y <= max_dist
 
@@ -126,7 +133,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
     for dx, dy in directions:
       new_x = last_x + dx
       new_y = last_y + dy
-      if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r):
+      if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r) and no_overlap(new_x, new_y, positions, size_mapping[0][1]):
         break
         
     positions.append((new_x, new_y, r))
