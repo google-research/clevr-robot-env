@@ -30,6 +30,9 @@ FLAGS = flags.FLAGS
 
 def main(_):
   env = ClevrEnv()
+  print(len(env.descriptions))
+  print(env.descriptions)
+  print(len(env.all_questions))
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)

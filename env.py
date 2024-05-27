@@ -50,8 +50,10 @@ VARIABLE_OBJ_METADATA_PATH = os.path.join(file_dir, 'metadata',
                                           'variable_obj_meta_data.json')
 
 # template_path
-EVEN_Q_DIST_TEMPLATE = os.path.join(
-    file_dir, 'templates/even_question_distribution.json')
+DESCRIPTION_DIST_TEMPLATE = os.path.join(
+    file_dir, 'templates/description_distribution.json')
+QUESTION_DIST_TEMPLATE = os.path.join(
+    file_dir, 'templates/general_question_distribution.json')
 VARIABLE_OBJ_TEMPLATE = os.path.join(file_dir, 'templates',
                                      'variable_object.json')
 
@@ -87,7 +89,8 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                maximum_episode_steps=100,
                xml_path=None,
                metadata_path=None,
-               template_path=None,
+               description_template_path=None,
+               question_template_path=None,
                num_object=5,
                agent_type='pm',
                random_start=False,
@@ -158,21 +161,33 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.clevr_metadata['_functions_by_name'] = functions_by_name
 
     # information regarding question template
-    if template_path is None:
-      template_path = EVEN_Q_DIST_TEMPLATE
+    if description_template_path is None:
+      description_template_path = DESCRIPTION_DIST_TEMPLATE
+    if question_template_path is None:
+      question_template_path = QUESTION_DIST_TEMPLATE
     if self.variable_scene_content:
       print('loading variable input template')
       template_path = VARIABLE_OBJ_TEMPLATE
 
-    self.template_num = 0
-    self.templates = {}
-    fn = 'general_template'
-    with open(template_path, 'r') as template_file:
+    self.desc_template_num = 0
+    self.desc_templates = {}
+    fn = 'description_template'
+    with open(description_template_path, 'r') as template_file:
       for i, template in enumerate(json.load(template_file)):
-        self.template_num += 1
+        self.desc_template_num += 1
         key = (fn, i)
-        self.templates[key] = template
-    print('Read {} templates from disk'.format(self.template_num))
+        self.desc_templates[key] = template
+    print('Read {} templates from disk'.format(self.desc_template_num))
+    
+    self.ques_template_num = 0
+    self.ques_templates = {}
+    fn = 'general_template'
+    with open(question_template_path, 'r') as template_file:
+      for i, template in enumerate(json.load(template_file)):
+        self.ques_template_num += 1
+        key = (fn, i)
+        self.ques_templates[key] = template
+    print('Read {} templates from disk'.format(self.ques_template_num))
 
     # setting up camera transformation
     self.w2c, self.c2w = gs.camera_transformation_from_pose(90, -45)
@@ -640,11 +655,13 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     """Update the text description of the current scene."""
     gq = generate_question_from_scene_struct
     dn = self.description_num if not custom_n else custom_n
-    tn = self.template_num
+    tn = 4
     self.descriptions, self.full_descriptions = gq(
         self.scene_struct,
         self.clevr_metadata,
-        self.templates,
+        self.desc_templates,
+        self.ques_templates,
+        description=True,
         templates_per_image=tn,
         instances_per_template=dn,
         use_synonyms=self.use_synonyms)
