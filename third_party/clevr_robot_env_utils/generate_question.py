@@ -38,67 +38,34 @@ with open(synonyms_json, 'r') as f:
 
 def generate_question_from_scene_struct(scene_struct,
                                         metadata,
-                                        templates,
+                                        desc_templates,
+                                        ques_templates,
+                                        description=True,
                                         instances_per_template=20,
                                         templates_per_image=3,
                                         verbose=False,
                                         time_dfs=False,
                                         use_synonyms=False):
-
-  def _reset_counts():
-    # Maps a template (filename, index) to the number of questions we have
-    # so far using that template
-    template_counts = {}
-    # Maps a template (filename, index) to a dict mapping the answer to the
-    # number of questions so far of that template type with that answer
-    template_answer_counts = {}
-    node_type_to_dtype = {n['name']: n['output'] for n in metadata['functions']}
-    for key, template in templates.items():
-      template_counts[key[:2]] = 0
-      final_node_type = template['nodes'][-1]['type']
-      final_dtype = node_type_to_dtype[final_node_type]
-      answers = metadata['types'][final_dtype]
-      if final_dtype == 'Bool':
-        answers = [True, False]
-      if final_dtype == 'Integer':
-        if metadata['dataset'] == 'CLEVR-v1.0':
-          answers = list(range(0, 11))
-      template_answer_counts[key[:2]] = {}
-      for a in answers:
-        template_answer_counts[key[:2]][a] = 0
-    return template_counts, template_answer_counts
-
-  template_counts, template_answer_counts = _reset_counts()
-
+  
+  if description:
+    templates = desc_templates
+  else:
+    templates = ques_templates
+  
   questions = []
-
-  # Order templates by the number of questions we have so far for those
-  # templates. This is a simple heuristic to give a flat distribution over
-  # templates.
   templates_items = list(templates.items())
-  templates_items = sorted(
-      templates_items, key=lambda x: template_counts[x[0][:2]])
   num_instantiated = 0
 
   synonyms = SYNONYMS
 
   for (fn, idx), template in templates_items:
-    if verbose:
-      print('trying template ', fn, idx)
-    if time_dfs and verbose:
-      tic = time.time()
     ts, qs, ans = instantiate_templates_dfs(
         scene_struct,
         template,
         metadata,
-        template_answer_counts[(fn, idx)],
         synonyms,
-        max_instances=instances_per_template,
         verbose=False,
         use_synonyms=use_synonyms)
-    if time_dfs and verbose:
-      toc = time.time()
-      print('that took ', toc - tic)
     for t, q, a in zip(ts, qs, ans):
       questions.append({
           'question': t,
@@ -109,12 +76,7 @@ def generate_question_from_scene_struct(scene_struct,
           'question_index': len(questions),
       })
     if ts:
-      if verbose:
-        print('got one!')
       num_instantiated += 1
-      template_counts[(fn, idx)] += 1
-    elif verbose:
-      print('did not get any =(')
     if num_instantiated >= templates_per_image:
       break
   qa_pairs = []
@@ -122,13 +84,10 @@ def generate_question_from_scene_struct(scene_struct,
     qa_pairs.append(' '.join([q['question'], str(q['answer'])]))
   return qa_pairs, questions
 
-
 def instantiate_templates_dfs(scene_struct,
                               template,
                               metadata,
-                              answer_counts,
                               synonyms,
-                              max_instances=None,
                               verbose=False,
                               use_synonyms=True):
   param_name_to_type = {p['name']: p['type'] for p in template['params']}
@@ -142,6 +101,7 @@ def instantiate_templates_dfs(scene_struct,
       'next_template_node': 1,
   }
   states = [initial_state]
+  relations = ["behind", "front", "left", "right"]
   final_states = []
   while states:
     state = states.pop()
@@ -321,21 +281,6 @@ def instantiate_templates_dfs(scene_struct,
     # processed all the nodes in the template then the current state is a valid
     # question, so add it if it passes our rejection sampling tests.
     if state['next_template_node'] == len(template['nodes']):
-      # Use our rejection sampling heuristics to decide whether we should
-      # keep this template instantiation
-      cur_answer_count = answer_counts[answer]
-      answer_counts_sorted = sorted(answer_counts.values())
-      median_count = answer_counts_sorted[len(answer_counts_sorted) // 2]
-      median_count = max(median_count, 5)
-      if cur_answer_count > 1.1 * answer_counts_sorted[-2]:
-        if verbose:
-          print('skipping due to second count')
-        continue
-      if cur_answer_count > 5.0 * median_count:
-        if verbose:
-          print('skipping due to median')
-        continue
-
       # If the template contains a raw relate node then we need to check for
       # degeneracy at the end
       has_relate = any(n['type'] == 'relate' for n in template['nodes'])
@@ -345,10 +290,12 @@ def instantiate_templates_dfs(scene_struct,
         if degen:
           continue
 
-      answer_counts[answer] += 1
       state['answer'] = answer
-      final_states.append(state)
-      if max_instances is not None and len(final_states) == max_instances:
+      if state['vals']['<R>'] in relations: 
+        if state['answer'] == True:
+          final_states.append(state)
+        relations.remove(state['vals']['<R>'])
+      if len(relations) == 0:
         break
       continue
 
