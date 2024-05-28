@@ -23,6 +23,8 @@ from __future__ import print_function
 import json
 import os
 import random
+import re
+import itertools
 
 from gym import spaces
 from gym import utils
@@ -34,6 +36,7 @@ import third_party.clevr_robot_env_utils.question_engine as qeng
 
 from utils import load_utils
 from utils.xml_utils import convert_scene_to_xml
+from itertools import combinations
 
 import cv2
 import mujoco_env as mujoco_env  # custom mujoco_env
@@ -650,6 +653,120 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     """Update and return the current scene description."""
     self._update_description()
     return self.descriptions, self.full_descriptions
+  
+  def get_program_from_question(self, question):
+    program = [
+        {'type': 'scene', 'inputs': []},
+        {'type': 'filter_color', 'inputs': [0], 'side_inputs': []},
+        {'type': 'filter_shape', 'inputs': [1], 'side_inputs': ['sphere']},
+        {'type': 'exist', 'inputs': [2]},
+        {'type': 'relate', 'inputs': [2], 'side_inputs': []},
+        {'type': 'filter_color', 'inputs': [4], 'side_inputs': []},
+        {'type': 'filter_shape', 'inputs': [5], 'side_inputs': ['sphere']},
+        {'type': 'exist', 'inputs': [6]}
+    ]
+    
+    parts = question.split(' ')
+    main_color = parts[-2]
+    direction = parts[5]
+    second_color = parts[3]
+    
+    program[1]['side_inputs'].append(main_color)
+    program[4]['side_inputs'].append(direction)
+    program[5]['side_inputs'].append(second_color)
+
+    return program
+  
+  def switch_behind_front(self, question):
+    if 'behind' in question:
+      return question.replace('behind', 'front')
+    elif 'front' in question:
+      return question.replace('front', 'behind')
+    return question
+  
+  def format_questions(self, questions):
+    formatted_questions = []
+
+    for question_set in questions:
+      if len(question_set) == 1:
+        formatted_questions.append(self.switch_behind_front(question_set[0]))
+      elif len(question_set) == 2:
+        rel_1 = question_set[0].split(' ')
+        rel_2 = question_set[1].split(' ')
+        
+        combined_question = f"Is there a {rel_1[3]} sphere {rel_1[5]} and {rel_2[5]} of the {rel_1[-2]} sphere?"
+        formatted_questions.append(self.switch_behind_front(combined_question))
+      else:
+        formatted_questions.extend(question_set)
+
+    return formatted_questions
+
+  def generate_all_questions(self, colors, direction_combinations, directions):
+    questions = []
+    color_pairs = list(itertools.permutations(colors, 2))
+    
+    for direction in directions:
+      for color1, color2 in color_pairs:
+        questions.append([f"Is there a {color1} sphere {direction} of the {color2} sphere?"])
+    
+    for direction_combination in direction_combinations:
+      for color1, color2 in color_pairs:
+        question_set = [
+          f"Is there a {color1} sphere {direction_combination[0]} of the {color2} sphere?",
+          f"Is there a {color1} sphere {direction_combination[1]} of the {color2} sphere?"
+        ]
+        questions.append(question_set)
+    
+    return questions
+  
+  def get_ambiguous_pairs(self, description, colors):
+    colors = ['red', 'blue', 'green', 'purple', 'cyan']
+    all_combinations = combinations(colors, 2)
+    all_combinations = set([tuple(sorted(combination)) for combination in all_combinations])
+    
+    pattern = re.compile(r'There is a (\w+) sphere.*?any (\w+) spheres')
+    
+    mentioned_combinations = set()
+    for sentence in description:
+      match = pattern.search(sentence)
+      if match:
+        color1 = match.group(1)
+        color2 = match.group(2)
+        mentioned_combinations.add(tuple(sorted([color1, color2])))
+    
+    not_mentioned_combinations = all_combinations - mentioned_combinations
+    return list(not_mentioned_combinations)
+
+  def get_formatted_description(self):
+    """Get formatted decsription of the current scene for LLM input
+    """
+    unformatted, _ = self.get_description()
+    
+    def rephrase(sentence):
+      # Extract the relevant parts using regex
+      match = re.match(r'There is a (\w+) sphere[;,] are there any (\w+) spheres one unit (\w+) it\?', sentence)
+      if match:
+        main_color = match.group(1)
+        other_color = match.group(2)
+        position = match.group(3)
+        # Switch "behind" and "front" and handle the "of"
+        if position == "behind":
+          return f'There is a {other_color} sphere one unit front of the {main_color} sphere'
+        elif position == "front":
+          return f'There is a {other_color} sphere one unit behind the {main_color} sphere'
+        elif position == "left":
+          return f'There is a {other_color} sphere one unit left of the {main_color} sphere'
+        elif position == "right":
+          return f'There is a {other_color} sphere one unit right of the {main_color} sphere'
+        else:
+          return f'There is a {other_color} sphere one unit {position} of the {main_color} sphere'
+      return sentence
+
+    # Rephrase the filtered data
+    rephrased_data = [rephrase(item.split(' True')[0]) for item in unformatted]
+    colors_leftout = self.get_ambiguous_pairs(unformatted, ['red', 'blue', 'green', 'purple', 'cyan'])
+    
+    return rephrased_data, colors_leftout
 
   def _update_description(self, custom_n=None):
     """Update the text description of the current scene."""
