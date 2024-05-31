@@ -23,6 +23,8 @@ from __future__ import print_function
 import json
 import os
 import random
+import re
+import itertools
 
 from gym import spaces
 from gym import utils
@@ -50,8 +52,10 @@ VARIABLE_OBJ_METADATA_PATH = os.path.join(file_dir, 'metadata',
                                           'variable_obj_meta_data.json')
 
 # template_path
-EVEN_Q_DIST_TEMPLATE = os.path.join(
-    file_dir, 'templates/even_question_distribution.json')
+DESCRIPTION_DIST_TEMPLATE = os.path.join(
+    file_dir, 'templates/description_distribution.json')
+QUESTION_DIST_TEMPLATE = os.path.join(
+    file_dir, 'templates/general_question_distribution.json')
 VARIABLE_OBJ_TEMPLATE = os.path.join(file_dir, 'templates',
                                      'variable_object.json')
 
@@ -87,7 +91,8 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                maximum_episode_steps=100,
                xml_path=None,
                metadata_path=None,
-               template_path=None,
+               description_template_path=None,
+               question_template_path=None,
                num_object=5,
                agent_type='pm',
                random_start=False,
@@ -158,21 +163,33 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.clevr_metadata['_functions_by_name'] = functions_by_name
 
     # information regarding question template
-    if template_path is None:
-      template_path = EVEN_Q_DIST_TEMPLATE
+    if description_template_path is None:
+      description_template_path = DESCRIPTION_DIST_TEMPLATE
+    if question_template_path is None:
+      question_template_path = QUESTION_DIST_TEMPLATE
     if self.variable_scene_content:
       print('loading variable input template')
       template_path = VARIABLE_OBJ_TEMPLATE
 
-    self.template_num = 0
-    self.templates = {}
-    fn = 'general_template'
-    with open(template_path, 'r') as template_file:
+    self.desc_template_num = 0
+    self.desc_templates = {}
+    fn = 'description_template'
+    with open(description_template_path, 'r') as template_file:
       for i, template in enumerate(json.load(template_file)):
-        self.template_num += 1
+        self.desc_template_num += 1
         key = (fn, i)
-        self.templates[key] = template
-    print('Read {} templates from disk'.format(self.template_num))
+        self.desc_templates[key] = template
+    print('Read {} templates from disk'.format(self.desc_template_num))
+    
+    self.ques_template_num = 0
+    self.ques_templates = {}
+    fn = 'general_template'
+    with open(question_template_path, 'r') as template_file:
+      for i, template in enumerate(json.load(template_file)):
+        self.ques_template_num += 1
+        key = (fn, i)
+        self.ques_templates[key] = template
+    print('Read {} templates from disk'.format(self.ques_template_num))
 
     # setting up camera transformation
     self.w2c, self.c2w = gs.camera_transformation_from_pose(90, -45)
@@ -635,16 +652,132 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     """Update and return the current scene description."""
     self._update_description()
     return self.descriptions, self.full_descriptions
+  
+  def get_program_from_question(self, question):
+    program = [
+        {'type': 'scene', 'inputs': []},
+        {'type': 'filter_color', 'inputs': [0], 'side_inputs': []},
+        {'type': 'filter_shape', 'inputs': [1], 'side_inputs': ['sphere']},
+        {'type': 'exist', 'inputs': [2]},
+        {'type': 'relate', 'inputs': [2], 'side_inputs': []},
+        {'type': 'filter_color', 'inputs': [4], 'side_inputs': []},
+        {'type': 'filter_shape', 'inputs': [5], 'side_inputs': ['sphere']},
+        {'type': 'exist', 'inputs': [6]}
+    ]
+    
+    parts = question.split(' ')
+    main_color = parts[-2]
+    direction = parts[5]
+    second_color = parts[3]
+    
+    program[1]['side_inputs'].append(main_color)
+    program[4]['side_inputs'].append(direction)
+    program[5]['side_inputs'].append(second_color)
+
+    return program
+  
+  def switch_behind_front(self, question):
+    if 'behind' in question:
+      return question.replace('behind', 'front')
+    elif 'front' in question:
+      return question.replace('front', 'behind')
+    return question
+  
+  def format_questions(self, questions):
+    formatted_questions = []
+
+    for question_set in questions:
+      if len(question_set) == 1:
+        formatted_questions.append(self.switch_behind_front(question_set[0]))
+      elif len(question_set) == 2:
+        rel_1 = question_set[0].split(' ')
+        rel_2 = question_set[1].split(' ')
+        
+        combined_question = f"Is there a {rel_1[3]} sphere {rel_1[5]} and {rel_2[5]} of the {rel_1[-2]} sphere?"
+        formatted_questions.append(self.switch_behind_front(combined_question))
+      else:
+        formatted_questions.extend(question_set)
+
+    return formatted_questions
+
+  def generate_all_questions(self, colors, direction_combinations, directions):
+    questions = []
+    color_pairs = list(itertools.permutations(colors, 2))
+    
+    for direction in directions:
+      for color1, color2 in color_pairs:
+        questions.append([f"Is there a {color1} sphere {direction} of the {color2} sphere?"])
+    
+    for direction_combination in direction_combinations:
+      for color1, color2 in color_pairs:
+        question_set = [
+          f"Is there a {color1} sphere {direction_combination[0]} of the {color2} sphere?",
+          f"Is there a {color1} sphere {direction_combination[1]} of the {color2} sphere?"
+        ]
+        questions.append(question_set)
+    
+    return questions
+  
+  def get_ambiguous_pairs(self, description, colors):
+    colors = ['red', 'blue', 'green', 'purple', 'cyan']
+    all_combinations = itertools.combinations(colors, 2)
+    all_combinations = set([tuple(sorted(combination)) for combination in all_combinations])
+    
+    pattern = re.compile(r'There is a (\w+) sphere.*?any (\w+) spheres')
+    
+    mentioned_combinations = set()
+    for sentence in description:
+      match = pattern.search(sentence)
+      if match:
+        color1 = match.group(1)
+        color2 = match.group(2)
+        mentioned_combinations.add(tuple(sorted([color1, color2])))
+    
+    not_mentioned_combinations = all_combinations - mentioned_combinations
+    return list(not_mentioned_combinations)
+
+  def get_formatted_description(self):
+    """Get formatted decsription of the current scene for LLM input
+    """
+    unformatted, _ = self.get_description()
+    
+    def rephrase(sentence):
+      # Extract the relevant parts using regex
+      match = re.match(r'There is a (\w+) sphere[;,] are there any (\w+) spheres one unit (\w+) it\?', sentence)
+      if match:
+        main_color = match.group(1)
+        other_color = match.group(2)
+        position = match.group(3)
+        # Switch "behind" and "front" and handle the "of"
+        if position == "behind":
+          return f'There is a {other_color} sphere one unit front of the {main_color} sphere'
+        elif position == "front":
+          return f'There is a {other_color} sphere one unit behind the {main_color} sphere'
+        elif position == "left":
+          return f'There is a {other_color} sphere one unit left of the {main_color} sphere'
+        elif position == "right":
+          return f'There is a {other_color} sphere one unit right of the {main_color} sphere'
+        else:
+          return f'There is a {other_color} sphere one unit {position} of the {main_color} sphere'
+      return sentence
+
+    # Rephrase the filtered data
+    rephrased_data = [rephrase(item.split(' True')[0]) for item in unformatted]
+    colors_leftout = self.get_ambiguous_pairs(unformatted, ['red', 'blue', 'green', 'purple', 'cyan'])
+    
+    return rephrased_data, colors_leftout
 
   def _update_description(self, custom_n=None):
     """Update the text description of the current scene."""
     gq = generate_question_from_scene_struct
     dn = self.description_num if not custom_n else custom_n
-    tn = self.template_num
+    tn = self.desc_template_num
     self.descriptions, self.full_descriptions = gq(
         self.scene_struct,
         self.clevr_metadata,
-        self.templates,
+        self.desc_templates,
+        self.ques_templates,
+        description=True,
         templates_per_image=tn,
         instances_per_template=dn,
         use_synonyms=self.use_synonyms)

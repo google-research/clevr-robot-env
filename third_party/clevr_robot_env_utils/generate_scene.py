@@ -307,7 +307,7 @@ def randomly_perturb_objects(scene_struct,
   return objects
 
 
-def compute_relationship(scene_struct, use_polar=False, eps=0.6, max_dist=0.7):
+def compute_relationship(scene_struct, use_polar=False, eps=0.3, max_dist=0.7):
   """Compute pariwise relationship between objects."""
   all_relationships = {}
   max_dist_sq = max_dist**2
