@@ -738,12 +738,12 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   
   def generate_llm_questions(self, all_questions, colors_leftout):
     filtered_questions = []
-    for question in all_questions:
+    for idx, question in enumerate(all_questions):
       unk_answer = False 
       for color in colors_leftout:
         unk_answer = unk_answer or color[0] in question and color[1] in question
       if unk_answer:
-        filtered_questions.append(question)
+        filtered_questions.append((question, idx))
     
     return filtered_questions
 
