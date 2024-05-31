@@ -36,7 +36,6 @@ import third_party.clevr_robot_env_utils.question_engine as qeng
 
 from utils import load_utils
 from utils.xml_utils import convert_scene_to_xml
-from itertools import combinations
 
 import cv2
 import mujoco_env as mujoco_env  # custom mujoco_env
@@ -721,7 +720,7 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   
   def get_ambiguous_pairs(self, description, colors):
     colors = ['red', 'blue', 'green', 'purple', 'cyan']
-    all_combinations = combinations(colors, 2)
+    all_combinations = itertools.combinations(colors, 2)
     all_combinations = set([tuple(sorted(combination)) for combination in all_combinations])
     
     pattern = re.compile(r'There is a (\w+) sphere.*?any (\w+) spheres')
@@ -783,7 +782,7 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     """Update the text description of the current scene."""
     gq = generate_question_from_scene_struct
     dn = self.description_num if not custom_n else custom_n
-    tn = 4
+    tn = self.desc_template_num
     self.descriptions, self.full_descriptions = gq(
         self.scene_struct,
         self.clevr_metadata,
