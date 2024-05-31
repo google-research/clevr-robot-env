@@ -15,14 +15,9 @@
 
 """This script demonstrate the usage of CLEVR-ROBOT environment."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from absl import app
-from absl import flags
+from __future__ import absolute_import, division, print_function
+from absl import app, flags
 from matplotlib import pyplot as PLT
-
 from env import ClevrEnv
 
 import numpy as np
@@ -31,7 +26,6 @@ FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan']
 DIRECTIONS = ['left', 'right', 'front', 'behind']
 DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
-
 
 def main(_):
   env = ClevrEnv()
