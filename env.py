@@ -736,6 +736,17 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     
     not_mentioned_combinations = all_combinations - mentioned_combinations
     return list(not_mentioned_combinations)
+  
+  def generate_llm_questions(self, all_questions, colors_leftout):
+    filtered_questions = []
+    for question in all_questions:
+      unk_answer = False 
+      for color in colors_leftout:
+        unk_answer = unk_answer or color[0] in question and color[1] in question
+      if unk_answer:
+        filtered_questions.append(question)
+    
+    return filtered_questions
 
   def get_formatted_description(self):
     """Get formatted decsription of the current scene for LLM input

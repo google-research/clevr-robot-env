@@ -66,6 +66,7 @@ def main(_):
 
   # Format question for LLM input
   formatted_questions = env.format_questions(all_questions)
+  llm_questions = env.generate_llm_questions(formatted_questions, colors_leftout)
   
   llm_examples = []
   for i in range(len(formatted_questions)):
