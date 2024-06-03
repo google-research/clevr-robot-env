@@ -20,8 +20,6 @@ from absl import app, flags
 from matplotlib import pyplot as PLT
 from env import ClevrEnv
 
-import numpy as np
-
 FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan']
 DIRECTIONS = ['left', 'right', 'front', 'behind']
@@ -29,9 +27,6 @@ DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('righ
 
 def main(_):
   env = ClevrEnv()
-  print(len(env.descriptions))
-  print(env.descriptions)
-  print(len(env.all_questions))
   
   description, colors_leftout = env.get_formatted_description()
   print('Descriptions: ', description)
@@ -61,9 +56,15 @@ def main(_):
   # Format question for LLM input
   formatted_questions = env.format_questions(all_questions)
   
-  llm_examples = []
+  all_questions_answers = []
   for i in range(len(formatted_questions)):
-    llm_examples.append((formatted_questions[i], questions_answers[i][1]))
-
+    all_questions_answers.append((formatted_questions[i], questions_answers[i][1]))
+      
+  # Get llm questions
+  llm_questions = env.generate_llm_questions(formatted_questions, colors_leftout)
+  llm_questions_answers = []
+  for i in range(len(llm_questions)):
+    llm_questions_answers.append((llm_questions[i][0], questions_answers[llm_questions[i][1]][1]))
+  
 if __name__ == '__main__':
   app.run(main)
