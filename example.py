@@ -23,13 +23,13 @@ from absl import app
 from absl import flags
 from matplotlib import pyplot as PLT
 
-from env import ClevrEnv
+from env import ClevrGridEnv
 
 FLAGS = flags.FLAGS
 
 
 def main(_):
-  env = ClevrEnv()
+  env = ClevrGridEnv()
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
