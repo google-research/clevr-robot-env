@@ -89,12 +89,16 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   def __init__(self, top_down_view=False):
 
     utils.EzPickle.__init__(self)
+    self.min_dist = -0.5
+    self.max_dist = 0.5
+    self.curr_step = 0
     metadata_path=None
-    frame_skip = 20
+    self.frame_skip = 20
+    self.reward_threshold = 0.
     question_template_path=None
     description_num=15
-    maximum_episode_steps=100
-    initial_xml_path = DEFAULT_XML_PATH
+    self.maximum_episode_steps=100
+    self.initial_xml_path = DEFAULT_XML_PATH
     self.obj_name = []
     self.action_type = 'continuous'
     self.use_movement_bonus = False
@@ -173,10 +177,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     mujoco_env.MujocoEnv.__init__(
         self,
-        initial_xml_path,
-        frame_skip,
-        max_episode_steps=maximum_episode_steps,
-        reward_threshold=0.,
+        self.initial_xml_path,
+        self.frame_skip,
+        max_episode_steps=self.maximum_episode_steps,
+        reward_threshold=self.reward_threshold,
+        object_positions=None
     )
 
     # name of geometries in the scene
@@ -223,6 +228,49 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     """Load the model into physics specified by a xml string."""
     self.physics.reload_from_xml_string(xml_string)
 
+  def step_place_object_in_relation(self, obj1_id, relation, obj2_id, units=1):
+    
+    # get current object positions
+    obj1_x, obj1_y, obj1_z = self.scene_graph[obj1_id]['3d_coords']
+    obj2_x, obj2_y, obj2_z = self.scene_graph[obj2_id]['3d_coords']
+    
+    # compute desired position
+    if(not (relation in gs.GRID_DIRECTIONS)):
+      raise NotImplementedError("Relation specified for place object step is not implemented!")
+    
+    obj1_x = obj2_x + gs.GRID_DIRECTIONS[relation][0]
+    obj1_y = obj2_y + gs.GRID_DIRECTIONS[relation][1]
+    
+    # check that position is not occupied by another object
+    positions = [obj['3d_coords'] for obj in self.scene_graph]
+    
+    #TODO: figure out how to get this radius from scene objects
+    radius = 0.1
+    
+    # indicator of success in placement
+    if (gs.no_overlap(obj1_x, obj1_y, positions, radius) and gs.is_within_bounds(obj1_x, obj1_y, self.min_dist, self.max_dist)):
+      self.scene_graph[obj1_id]['3d_coords'] = (obj1_x, obj1_y, obj1_z)
+      self.scene_struct['objects'] = self.scene_graph
+      self.scene_struct['relationships'] = gs.compute_relationship(
+          self.scene_struct, use_polar=self.use_polar)
+      
+      # Need descriptions to be updated
+      self._update_description()
+      positions = [obj['3d_coords'] for obj in self.scene_graph]
+      #TODO: any other way than going through init? Seems a bit roundabout.
+      mujoco_env.MujocoEnv.__init__(
+          self,
+          self.initial_xml_path,
+          self.frame_skip,
+          max_episode_steps=self.max_episode_steps,
+          reward_threshold=self.reward_threshold,
+          object_positions=positions
+      )
+      return True
+    else:
+      return False
+ 
+  # TODO: we need to remove unnecessary things here in the step method
   def step(self,
            a,
            record_achieved_goal=False,
@@ -435,10 +483,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   def sample_random_scene(self):
     """Sample a random scene base on current viewing angle."""
     if self.variable_scene_content:
-      return gs.generate_scene_struct(self.c2w, self.num_object,
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object,
                                       self.clevr_metadata)
     else:
-      return gs.generate_scene_struct(self.c2w, self.num_object)
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object)
 
   def _update_description(self, custom_n=None):
     """Update the text description of the current scene."""
@@ -504,4 +552,30 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     elif 'front' in question:
       return question.replace('front', 'behind')
     return question
+
+  def reset(self, obj_pos=None):
+    
+    if(not(obj_pos is None)):
+      """Reset with a fixed configuration."""
+
+      self.scene_graph, self.scene_struct = gs.generate_fixed_scene_struct(self.c2w, self.num_object, obj_pos)
+
+      # Generate initial set of description from the scene graph.
+      self.descriptions, self.full_descriptions = None, None
+      self._update_description()
+      self.curr_step = 0
+
+      curr_scene_xml = convert_scene_to_xml(
+            self.scene_graph,
+            agent=self.agent_type,
+            checker_board=self.checker_board)
+
+      self.load_xml_string(curr_scene_xml)
+
+      self._update_object_description()
+
+      return self.get_obs()
+    else:
+      
+      raise NotImplementedError("NEED TO IMPLEMEN RANDOM RESET")
   
