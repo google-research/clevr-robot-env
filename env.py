@@ -778,7 +778,7 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           description_parts.append(f"{abs(y_diff)} unit{'s' if abs(y_diff) > 1 else ''} {'behind' if y_diff > 0 else 'in front of'}")
 
         if description_parts:
-          description = f"The {current_color} sphere is {', '.join(description_parts)} the {previous_color} sphere."
+          description = f"The {current_color} sphere is {' and '.join(description_parts)} the {previous_color} sphere."
           descriptions.append(description)
 
     return descriptions
