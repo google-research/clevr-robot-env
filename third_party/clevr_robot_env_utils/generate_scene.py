@@ -95,8 +95,8 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
                     ('cyan', '0.2 1 1 1')]
   material_mapping = ['rubber']
   
-  # Directions: (+x, -x, +y, -y)
-  directions = [(0.2, 0), (-0.2, 0), (0, 0.2), (0, -0.2)]
+  # Directions
+  directions = [(x, y) for x in [0, 0.2, 0.4] for y in [0, 0.2, 0.4] if not (x == 0 and y == 0)]
 
   # Place the first object randomly within bounds
   x = random.uniform(min_dist, max_dist)
