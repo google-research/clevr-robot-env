@@ -746,6 +746,43 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         filtered_questions.append((question, idx))
     
     return filtered_questions
+  
+  def get_coordinates_description(self):
+    objects = self.scene_struct['objects']
+    
+    color_order = ['red', 'blue', 'green', 'purple', 'cyan']
+  
+    coords = {}
+    for idx, obj in enumerate(objects):
+      coords[color_order[idx]] = obj['3d_coords']
+
+    diameter = 0.2
+    descriptions = []
+
+    for i in range(1, len(color_order)):
+      current_color = color_order[i]
+      previous_color = color_order[i - 1]
+
+      if current_color in coords and previous_color in coords:
+        curr_coords = coords[current_color]
+        prev_coords = coords[previous_color]
+
+        x_diff = (curr_coords[0] - prev_coords[0]) / diameter
+        y_diff = (curr_coords[1] - prev_coords[1]) / diameter
+        
+        description_parts = []
+        if x_diff != 0:
+          description_parts.append(f"{abs(x_diff)} unit{'s' if abs(x_diff) > 1 else ''} {'right of' if x_diff > 0 else 'left of'}")
+
+        if y_diff != 0:
+          description_parts.append(f"{abs(y_diff)} unit{'s' if abs(y_diff) > 1 else ''} {'behind' if y_diff > 0 else 'in front of'}")
+
+        if description_parts:
+          description = f"The {current_color} sphere is {' and '.join(description_parts)} the {previous_color} sphere."
+          descriptions.append(description)
+
+    return descriptions
+
 
   def get_formatted_description(self):
     """Get formatted decsription of the current scene for LLM input
