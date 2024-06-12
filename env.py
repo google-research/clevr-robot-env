@@ -767,8 +767,8 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         curr_coords = coords[current_color]
         prev_coords = coords[previous_color]
 
-        x_diff = (curr_coords[0] - prev_coords[0]) / diameter
-        y_diff = (curr_coords[1] - prev_coords[1]) / diameter
+        x_diff = round((curr_coords[0] - prev_coords[0]) / diameter)
+        y_diff = round((curr_coords[1] - prev_coords[1]) / diameter)
         
         description_parts = []
         if x_diff != 0:
