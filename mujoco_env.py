@@ -31,7 +31,7 @@ import numpy as np
 class MujocoEnv(gym.Env):
   """Custom Mujoco environment that uses dm control's wrapper."""
 
-  def __init__(self, model_path, frame_skip, max_episode_steps=None,
+  def __init__(self, model_path, frame_skip, obj_pos, max_episode_steps=None,
                reward_threshold=None):
 
     if model_path.startswith('/'):
@@ -56,8 +56,8 @@ class MujocoEnv(gym.Env):
 
     self.init_qpos = self.physics.data.qpos.ravel().copy()
     self.init_qvel = self.physics.data.qvel.ravel().copy()
-    observation, _, done, _ = self.step(np.zeros(self.physics.model.nu))
-    assert not done
+    self.random_start = False
+    observation = self.reset(obj_pos)
     self.obs_dim = observation.size
 
     bounds = self.physics.model.actuator_ctrlrange.copy()

@@ -135,6 +135,9 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.min_change_th = min_change_th
     self.use_polar = use_polar
     self.suppress_other_movement = suppress_other_movement
+    # agent type and randomness of starting location
+    self.agent_type = agent_type
+    self.random_start = random_start
 
     if use_subset_instruction and systematic_generalization:
       train, test = load_utils.create_systematic_generalization_split()
@@ -226,11 +229,13 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self._update_description()
     self.obj_description = []
     self._update_object_description()
+    obj_pos = [object["3d_coords"] for object in self.scene_struct["objects"]]
 
     mujoco_env.MujocoEnv.__init__(
         self,
         initial_xml_path,
         frame_skip,
+        obj_pos,
         max_episode_steps=maximum_episode_steps,
         reward_threshold=0.,
     )
@@ -297,13 +302,36 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.valid_questions = []
 
     # counter for reset
-    self.reset(True)
+    self.reset(new_scene_content=True)
     self.curr_step = 0
     self.current_goal_text, self.current_goal = self.sample_goal()
     self.achieved_last_step = []
     self.achieved_last_step_program = []
     print('CLEVR-ROBOT environment initialized.')
-
+    
+  def kinematics_step(self, directions, velocities, time):
+    new_coords_list = []
+        
+    for obj, direction, velocity in zip(self.scene_struct["objects"], directions, velocities):
+      init_coords = obj["3d_coords"]
+      displacement = [d * velocity * time for d in direction]
+      new_coords = [init + disp for init, disp in zip(init_coords, displacement)]
+      new_coords_list.append(new_coords)
+            
+    self.scene_graph, self.scene_struct = gs.generate_scene_struct(self.c2w, self.num_object, new_coords_list)
+    self.scene_struct['relationships'] = gs.compute_relationship(self.scene_struct, use_polar=self.use_polar)
+    self._update_description()
+    self.curr_step += 1
+    obj_pos = [item['3d_coords'] for item in self.scene_graph]
+    mujoco_env.MujocoEnv.__init__(
+        self,
+        DEFAULT_XML_PATH,
+        20,
+        obj_pos,
+        max_episode_steps=100,
+        reward_threshold=0.,
+    )
+    
   def step(self,
            a,
            record_achieved_goal=False,
@@ -465,10 +493,10 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     dist = np.min(np.linalg.norm(dist, axis=1))
     self.do_simulation(direction, duration)
 
-  def reset(self, new_scene_content=True):
-    """Reset with a random configuration."""
-    if new_scene_content or not self.variable_scene_content:
-      # sample a random scene and struct
+  def reset(self, obj_pos=None, new_scene_content=True):
+    if obj_pos:
+      self.scene_graph, self.scene_struct = self.sample_fixed_scene(obj_pos)
+    elif new_scene_content or not self.variable_scene_content:
       self.scene_graph, self.scene_struct = self.sample_random_scene()
     else:
       # randomly perturb existing objects in the scene
@@ -563,6 +591,10 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     """Set the goal to be used in standard RL settings."""
     self.current_goal_text = goal_text
     self.current_goal = goal_program
+  
+  def sample_fixed_scene(self, obj_pos):
+    """Sample a fixed scene"""
+    return gs.generate_scene_struct(self.c2w, self.num_object, obj_pos)
 
   def sample_random_scene(self):
     """Sample a random scene base on current viewing angle."""

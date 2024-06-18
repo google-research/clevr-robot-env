@@ -33,9 +33,20 @@ def main(_):
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
-  PLT.show()
+  PLT.savefig('init.jpeg')
   
-  # env.step(env.sample_random_action())
-
+  directions = [[1, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+  velocities = [1, 0, 0, 0, 0]
+  
+  env.kinematics_step(directions, velocities, 1)
+  
+  # action = env.sample_random_action()
+  
+  # env.step(action)
+  
+  rgb = env.render(mode='rgb_array')
+  PLT.imshow(rgb)
+  PLT.savefig('step_1.jpeg')
+  
 if __name__ == '__main__':
   app.run(main)

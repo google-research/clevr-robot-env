@@ -36,7 +36,7 @@ def camera_transformation_from_pose(azimutal, elevation):
   return r, np.linalg.inv(r)
 
 
-def generate_scene_struct(c2w, num_object=3, metadata=None):
+def generate_scene_struct(c2w, num_object=3, coords=None):
   """Generate a random scene struct."""
   # This will give ground-truth information about the scene and its objects
   scene_struct = {
@@ -66,7 +66,7 @@ def generate_scene_struct(c2w, num_object=3, metadata=None):
 
   # Now make some random objects
   # objects = add_random_objects(scene_struct, num_object, metadata=metadata)
-  objects = add_objects_grid(num_object, -0.5, 0.5)
+  objects = add_objects_grid(num_object, -0.5, 0.5, coords)
   scene_struct['objects'] = objects
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct
@@ -81,7 +81,7 @@ def no_overlap(new_x, new_y, positions, radius):
 def is_within_bounds(x, y, min_dist, max_dist):
   return min_dist <= x <= max_dist and min_dist <= y <= max_dist
 
-def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
+def add_objects_grid(num_objects, min_dist, max_dist, coords=None):
   positions = []
   objects = []
   
@@ -99,16 +99,17 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
   directions = [(x, y) for x in [0, 0.2, 0.4] for y in [0, 0.2, 0.4] if not (x == 0 and y == 0)]
 
   # Place the first object randomly within bounds
-  x = random.uniform(min_dist, max_dist)
-  y = random.uniform(min_dist, max_dist)
+  if not coords:
+    x = random.uniform(min_dist, max_dist)
+    y = random.uniform(min_dist, max_dist)
+  else:
+    x = coords[0][0]
+    y = coords[0][1]
   
   for i in range(num_objects):
     size_name, r = random.choice(size_mapping)
     shape_name, shape = random.choice(shape_mapping)
-    if not metadata:
-      color_name, color = color_mapping[i]
-    else:
-      color_name, color = random.choice(color_mapping)
+    color_name, color = color_mapping[i]
     mat_name = random.choice(material_mapping)
     
     # First object
@@ -130,11 +131,15 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
     last_x, last_y, _ = positions[-1]
     random.shuffle(directions)
 
-    for dx, dy in directions:
-      new_x = last_x + dx
-      new_y = last_y + dy
-      if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r) and no_overlap(new_x, new_y, positions, size_mapping[0][1]):
-        break
+    if not coords:
+      for dx, dy in directions:
+        new_x = last_x + dx
+        new_y = last_y + dy
+        if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r) and no_overlap(new_x, new_y, positions, size_mapping[0][1]):
+          break
+    else:
+      new_x = coords[i][0]
+      new_y = coords[i][1]
         
     positions.append((new_x, new_y, r))
     theta = 360.0 * random.random()
