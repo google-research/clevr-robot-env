@@ -36,7 +36,7 @@ def camera_transformation_from_pose(azimutal, elevation):
   return r, np.linalg.inv(r)
 
 
-def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, metadata=None):
+def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, coords=None):
   """Generate a random scene struct."""
   # This will give ground-truth information about the scene and its objects
   scene_struct = {
@@ -66,8 +66,7 @@ def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, metadata=None):
 
   # Now make some random objects
   # objects = add_random_objects(scene_struct, num_object, metadata=metadata)
-  objects = add_objects_grid(num_object, min_dist, max_dist, metadata)
-
+  objects = add_objects_grid(num_object, min_dist, max_dist, coords)
   scene_struct['objects'] = objects
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct
@@ -82,7 +81,7 @@ def no_overlap(new_x, new_y, positions, radius):
 def is_within_bounds(x, y, min_dist, max_dist):
   return min_dist <= x <= max_dist and min_dist <= y <= max_dist
 
-def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_radius=0.1):
+def add_objects_grid(num_objects, min_dist, max_dist, coords=None, grid_obj_radius=0.1):
   positions = []
   objects = []
   
@@ -98,15 +97,15 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_ra
   
 
   # Place the first object randomly within bounds
-  if not metadata:
+  # allow for spawning objects in a variety of 2 unit x and y directions. 
+  list_grid_dirs = [(x, y) for x in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
+  
+  if not coords:
     x = random.uniform(min_dist, max_dist)
     y = random.uniform(min_dist, max_dist)
   else:
-    x = metadata[0][0]
-    y = metadata[0][1]
-  
-  # allow for spawning objects in a variety of 2 unit x and y directions. 
-  list_grid_dirs = [(x, y) for x in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
+    x = coords[0][0]
+    y = coords[0][1]
   
   for i in range(num_objects):
     size_name, r = random.choice(size_mapping)
@@ -134,15 +133,15 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_ra
     
     random.shuffle(list_grid_dirs)
 
-    if not metadata:
+    if not coords:
       for dx, dy in list_grid_dirs:
         new_x = last_x + dx
         new_y = last_y + dy
         if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r) and no_overlap(new_x, new_y, positions, size_mapping[0][1]):
           break
     else:
-      new_x = metadata[i][0]
-      new_y = metadata[i][1]
+      new_x = coords[i][0]
+      new_y = coords[i][1]
         
     positions.append((new_x, new_y, r))
     theta = 360.0 * random.random()

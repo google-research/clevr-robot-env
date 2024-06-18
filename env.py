@@ -297,7 +297,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     else:
       return False
  
-  # TODO: we need to remove unnecessary things here in the step method
   def step(self,
            a,
            record_achieved_goal=False,
