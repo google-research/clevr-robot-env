@@ -116,6 +116,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.min_change_th = 0.26
     self.use_polar = False
     self.suppress_other_movement = False
+    self.obj_radius = 0.1
+    self.grid_placement_directions = {"right": (self.obj_radius*2.0, 0),
+                   "left": (self.obj_radius*(-2.0), 0),
+                   "front": (0, self.obj_radius*2.0),
+                   "behind": (0, self.obj_radius*(-2.0))}
 
     train, test = load_utils.load_all_question(), None
 
@@ -234,20 +239,17 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     obj2_x, obj2_y, obj2_z = self.scene_graph[obj2_id]['3d_coords']
     
     # compute desired position
-    if(not (relation in gs.GRID_DIRECTIONS)):
+    if(not (relation in self.grid_placement_directions)):
       raise NotImplementedError("Relation specified for place object step is not implemented!")
     
-    obj1_x = obj2_x + gs.GRID_DIRECTIONS[relation][0]
-    obj1_y = obj2_y + gs.GRID_DIRECTIONS[relation][1]
+    obj1_x = obj2_x + self.grid_placement_directions[relation][0]
+    obj1_y = obj2_y + self.grid_placement_directions[relation][1]
     
     # check that position is not occupied by another object
     positions = [obj['3d_coords'] for obj in self.scene_graph]
     
-    #TODO: figure out how to get this radius from scene objects
-    radius = 0.1
-    
     # indicator of success in placement
-    if (gs.no_overlap(obj1_x, obj1_y, positions, radius) and gs.is_within_bounds(obj1_x, obj1_y, self.min_dist, self.max_dist)):
+    if (gs.no_overlap(obj1_x, obj1_y, positions, self.obj_radius) and gs.is_within_bounds(obj1_x, obj1_y, self.min_dist, self.max_dist)):
       self.scene_graph[obj1_id]['3d_coords'] = (obj1_x, obj1_y, obj1_z)
       self.scene_struct['objects'] = self.scene_graph
       self.scene_struct['relationships'] = gs.compute_relationship(
