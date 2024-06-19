@@ -223,7 +223,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     print('CLEVR-ROBOT environment initialized.')
 
-
   def load_xml_string(self, xml_string):
     """Load the model into physics specified by a xml string."""
     self.physics.reload_from_xml_string(xml_string)
@@ -372,6 +371,157 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     return obs, r, done, info
 
+  def answer_question(self, program, all_outputs=False):
+    """Answer a functional program on the current scene."""
+    return qeng.answer_question({'nodes': program},
+                                self.clevr_metadata,
+                                self.scene_struct,
+                                cache_outputs=False,
+                                all_outputs=all_outputs)
+
+  def sample_random_scene(self):
+    """Sample a random scene base on current viewing angle."""
+    if self.variable_scene_content:
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object,
+                                      self.clevr_metadata)
+    else:
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object)
+    
+  def get_description(self):
+    """Update and return the current scene description."""
+    self._update_description()
+    return self.descriptions, self.full_descriptions
+  
+  def get_program_from_question(self, question):
+    program = [
+        {'type': 'scene', 'inputs': []},
+        {'type': 'filter_color', 'inputs': [0], 'side_inputs': []},
+        {'type': 'filter_shape', 'inputs': [1], 'side_inputs': ['sphere']},
+        {'type': 'exist', 'inputs': [2]},
+        {'type': 'relate', 'inputs': [2], 'side_inputs': []},
+        {'type': 'filter_color', 'inputs': [4], 'side_inputs': []},
+        {'type': 'filter_shape', 'inputs': [5], 'side_inputs': ['sphere']},
+        {'type': 'exist', 'inputs': [6]}
+    ]
+    
+    parts = question.split(' ')
+    main_color = parts[-2]
+    direction = parts[5]
+    second_color = parts[3]
+    
+    program[1]['side_inputs'].append(main_color)
+    program[4]['side_inputs'].append(direction)
+    program[5]['side_inputs'].append(second_color)
+
+    return program
+  
+  def switch_behind_front(self, question):
+    if 'behind' in question:
+      return question.replace('behind', 'front')
+    elif 'front' in question:
+      return question.replace('front', 'behind')
+    return question
+  
+  def format_questions(self, questions):
+    formatted_questions = []
+
+    for question_set in questions:
+      if len(question_set) == 1:
+        formatted_questions.append(self.switch_behind_front(question_set[0]))
+      elif len(question_set) == 2:
+        rel_1 = question_set[0].split(' ')
+        rel_2 = question_set[1].split(' ')
+        
+        combined_question = f"Is there a {rel_1[3]} sphere {rel_1[5]} and {rel_2[5]} of the {rel_1[-2]} sphere?"
+        formatted_questions.append(self.switch_behind_front(combined_question))
+      else:
+        formatted_questions.extend(question_set)
+
+    return formatted_questions
+
+  def generate_all_questions(self, colors, direction_combinations, directions):
+    questions = []
+    color_pairs = list(itertools.permutations(colors, 2))
+    
+    for direction in directions:
+      for color1, color2 in color_pairs:
+        questions.append([f"Is there a {color1} sphere {direction} of the {color2} sphere?"])
+    
+    for direction_combination in direction_combinations:
+      for color1, color2 in color_pairs:
+        question_set = [
+          f"Is there a {color1} sphere {direction_combination[0]} of the {color2} sphere?",
+          f"Is there a {color1} sphere {direction_combination[1]} of the {color2} sphere?"
+        ]
+        questions.append(question_set)
+    
+    return questions
+  
+  def get_ambiguous_pairs(self, description, colors):
+    colors = ['red', 'blue', 'green', 'purple', 'cyan']
+    all_combinations = itertools.combinations(colors, 2)
+    all_combinations = set([tuple(sorted(combination)) for combination in all_combinations])
+    
+    pattern = re.compile(r'There is a (\w+) sphere.*?any (\w+) spheres')
+    
+    mentioned_combinations = set()
+    for sentence in description:
+      match = pattern.search(sentence)
+      if match:
+        color1 = match.group(1)
+        color2 = match.group(2)
+        mentioned_combinations.add(tuple(sorted([color1, color2])))
+    
+    not_mentioned_combinations = all_combinations - mentioned_combinations
+    return list(not_mentioned_combinations)
+  
+  def generate_llm_questions(self, all_questions, colors_leftout):
+    filtered_questions = []
+    for idx, question in enumerate(all_questions):
+      unk_answer = False 
+      for color in colors_leftout:
+        unk_answer = unk_answer or color[0] in question and color[1] in question
+      if unk_answer:
+        filtered_questions.append((question, idx))
+    
+    return filtered_questions
+  
+  def get_coordinates_description(self):
+    objects = self.scene_struct['objects']
+    
+    color_order = ['red', 'blue', 'green', 'purple', 'cyan']
+  
+    coords = {}
+    for idx, obj in enumerate(objects):
+      coords[color_order[idx]] = obj['3d_coords']
+
+    diameter = 0.2
+    descriptions = []
+
+    for i in range(1, len(color_order)):
+      current_color = color_order[i]
+      previous_color = color_order[i - 1]
+
+      if current_color in coords and previous_color in coords:
+        curr_coords = coords[current_color]
+        prev_coords = coords[previous_color]
+
+        x_diff = round((curr_coords[0] - prev_coords[0]) / diameter)
+        y_diff = round((curr_coords[1] - prev_coords[1]) / diameter)
+        
+        description_parts = []
+        if x_diff != 0:
+          description_parts.append(f"{abs(x_diff)} unit{'s' if abs(x_diff) > 1 else ''} {'right of' if x_diff > 0 else 'left of'}")
+
+        if y_diff != 0:
+          description_parts.append(f"{abs(y_diff)} unit{'s' if abs(y_diff) > 1 else ''} {'behind' if y_diff > 0 else 'in front of'}")
+
+        if description_parts:
+          description = f"The {current_color} sphere is {' and '.join(description_parts)} the {previous_color} sphere."
+          descriptions.append(description)
+
+    return descriptions
+
   def get_formatted_description(self):
     """Get formatted decsription of the current scene for LLM input
     """
@@ -402,91 +552,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     colors_leftout = self.get_ambiguous_pairs(unformatted, ['red', 'blue', 'green', 'purple', 'cyan'])
     
     return rephrased_data, colors_leftout
-
-  def generate_all_questions(self, colors, direction_combinations, directions):
-    questions = []
-    color_pairs = list(itertools.permutations(colors, 2))
-    
-    for direction in directions:
-      for color1, color2 in color_pairs:
-        questions.append([f"Is there a {color1} sphere {direction} of the {color2} sphere?"])
-    
-    for direction_combination in direction_combinations:
-      for color1, color2 in color_pairs:
-        question_set = [
-          f"Is there a {color1} sphere {direction_combination[0]} of the {color2} sphere?",
-          f"Is there a {color1} sphere {direction_combination[1]} of the {color2} sphere?"
-        ]
-        questions.append(question_set)
-    
-    return questions
-
-  def get_program_from_question(self, question):
-    program = [
-        {'type': 'scene', 'inputs': []},
-        {'type': 'filter_color', 'inputs': [0], 'side_inputs': []},
-        {'type': 'filter_shape', 'inputs': [1], 'side_inputs': ['sphere']},
-        {'type': 'exist', 'inputs': [2]},
-        {'type': 'relate', 'inputs': [2], 'side_inputs': []},
-        {'type': 'filter_color', 'inputs': [4], 'side_inputs': []},
-        {'type': 'filter_shape', 'inputs': [5], 'side_inputs': ['sphere']},
-        {'type': 'exist', 'inputs': [6]}
-    ]
-    
-    parts = question.split(' ')
-    main_color = parts[-2]
-    direction = parts[5]
-    second_color = parts[3]
-    
-    program[1]['side_inputs'].append(main_color)
-    program[4]['side_inputs'].append(direction)
-    program[5]['side_inputs'].append(second_color)
-
-    return program
-
-  def answer_question(self, program, all_outputs=False):
-    """Answer a functional program on the current scene."""
-    return qeng.answer_question({'nodes': program},
-                                self.clevr_metadata,
-                                self.scene_struct,
-                                cache_outputs=False,
-                                all_outputs=all_outputs)
-  
-  def format_questions(self, questions):
-    formatted_questions = []
-
-    for question_set in questions:
-      if len(question_set) == 1:
-        formatted_questions.append(self.switch_behind_front(question_set[0]))
-      elif len(question_set) == 2:
-        rel_1 = question_set[0].split(' ')
-        rel_2 = question_set[1].split(' ')
-        
-        combined_question = f"Is there a {rel_1[3]} sphere {rel_1[5]} and {rel_2[5]} of the {rel_1[-2]} sphere?"
-        formatted_questions.append(self.switch_behind_front(combined_question))
-      else:
-        formatted_questions.extend(question_set)
-
-    return formatted_questions
-
-  def generate_llm_questions(self, all_questions, colors_leftout):
-    filtered_questions = []
-    for idx, question in enumerate(all_questions):
-      unk_answer = False 
-      for color in colors_leftout:
-        unk_answer = unk_answer or color[0] in question and color[1] in question
-      if unk_answer:
-        filtered_questions.append((question, idx))
-    
-    return filtered_questions
-
-  def sample_random_scene(self):
-    """Sample a random scene base on current viewing angle."""
-    if self.variable_scene_content:
-      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object,
-                                      self.clevr_metadata)
-    else:
-      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object)
 
   def _update_description(self, custom_n=None):
     """Update the text description of the current scene."""
@@ -523,36 +588,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         frame, dsize=(self.res, self.res), interpolation=cv2.INTER_CUBIC)
     return frame / 255.
 
-  def get_description(self):
-    """Update and return the current scene description."""
-    self._update_description()
-    return self.descriptions, self.full_descriptions
-  
-  def get_ambiguous_pairs(self, description, colors):
-    colors = ['red', 'blue', 'green', 'purple', 'cyan']
-    all_combinations = itertools.combinations(colors, 2)
-    all_combinations = set([tuple(sorted(combination)) for combination in all_combinations])
-    
-    pattern = re.compile(r'There is a (\w+) sphere.*?any (\w+) spheres')
-    
-    mentioned_combinations = set()
-    for sentence in description:
-      match = pattern.search(sentence)
-      if match:
-        color1 = match.group(1)
-        color2 = match.group(2)
-        mentioned_combinations.add(tuple(sorted([color1, color2])))
-    
-    not_mentioned_combinations = all_combinations - mentioned_combinations
-    return list(not_mentioned_combinations)
-
-  def switch_behind_front(self, question):
-    if 'behind' in question:
-      return question.replace('behind', 'front')
-    elif 'front' in question:
-      return question.replace('front', 'behind')
-    return question
-
   def reset(self, obj_pos=None):
     
     if(not(obj_pos is None)):
@@ -578,4 +613,3 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     else:
       
       raise NotImplementedError("NEED TO IMPLEMEN RANDOM RESET")
-  
