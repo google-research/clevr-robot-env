@@ -19,6 +19,12 @@ import math
 import random
 import numpy as np
 
+# right, left, front, behind
+GRID_DIRECTIONS = {"right": (0.2, 0),
+                   "left": (-0.2, 0),
+                   "front": (0, 0.2),
+                   "behind": (0, -0.2)}
+GRID_OBJ_RADIUS = 0.1
 
 def camera_transformation_from_pose(azimutal, elevation):
   """Output the camera transfromation matrix and inverse matrix."""
@@ -36,7 +42,7 @@ def camera_transformation_from_pose(azimutal, elevation):
   return r, np.linalg.inv(r)
 
 
-def generate_scene_struct(c2w, num_object=3, metadata=None):
+def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, metadata=None):
   """Generate a random scene struct."""
   # This will give ground-truth information about the scene and its objects
   scene_struct = {
@@ -66,7 +72,7 @@ def generate_scene_struct(c2w, num_object=3, metadata=None):
 
   # Now make some random objects
   # objects = add_random_objects(scene_struct, num_object, metadata=metadata)
-  objects = add_objects_grid(num_object, -0.5, 0.5)
+  objects = add_objects_grid(num_object, min_dist, max_dist)
   scene_struct['objects'] = objects
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct
@@ -86,7 +92,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
   objects = []
   
   # size_mapping = [('small', 0.07), ('medium', 0.1), ('large', 0.13)]
-  size_mapping = [('large', 0.1)]
+  size_mapping = [('large', GRID_OBJ_RADIUS)]
   # shape_mapping = [('sphere', 'sphere'), ('box', 'cube'),
   #                  ('cylinder', 'cylinder')]
   shape_mapping = [('sphere', 'sphere')]
@@ -101,6 +107,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
   # Place the first object randomly within bounds
   x = random.uniform(min_dist, max_dist)
   y = random.uniform(min_dist, max_dist)
+  list_grid_dirs = list(GRID_DIRECTIONS.values()) 
   
   for i in range(num_objects):
     size_name, r = random.choice(size_mapping)
@@ -128,9 +135,10 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
       continue
       
     last_x, last_y, _ = positions[-1]
-    random.shuffle(directions)
+    
+    random.shuffle(list_grid_dirs)
 
-    for dx, dy in directions:
+    for dx, dy in list_grid_dirs:
       new_x = last_x + dx
       new_y = last_y + dy
       if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r) and no_overlap(new_x, new_y, positions, size_mapping[0][1]):
@@ -149,6 +157,81 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
       'material': mat_name,
     })
 
+  return objects
+
+def generate_fixed_scene_struct(c2w, num_object=3, obj_pos=[], metadata=None):
+  """Generate a fixed scene struct."""
+  # This will give ground-truth information about the scene and its objects
+  scene_struct = {
+      'split': 'none',
+      'objects': [],
+      'directions': {},
+  }
+
+  plane_normal = np.array([0, 0, 1.])
+  cam_behind = c2w.dot(np.array([-1., 0, 0]))
+  cam_left = c2w.dot(np.array([0, 1., 0]))
+  cam_up = c2w.dot(np.array([0, 0, 1.]))
+  plane_behind = cam_behind - cam_behind.dot(plane_normal) * plane_normal
+  plane_left = cam_left - cam_left.dot(plane_normal) * plane_normal
+  plane_up = cam_up.dot(plane_normal) * plane_normal
+  plane_behind /= np.linalg.norm(plane_behind)
+  plane_left /= np.linalg.norm(plane_left)
+  plane_up /= np.linalg.norm(plane_up)
+
+  # Save all six axis-aligned directions in the scene struct
+  scene_struct['directions']['behind'] = plane_behind
+  scene_struct['directions']['front'] = -plane_behind
+  scene_struct['directions']['left'] = plane_left
+  scene_struct['directions']['right'] = -plane_left
+  scene_struct['directions']['above'] = plane_up
+  scene_struct['directions']['below'] = -plane_up
+
+  # Now make some random objects
+  objects = add_fixed_objects(scene_struct, num_object, obj_pos, metadata=metadata)
+  scene_struct['objects'] = objects
+  scene_struct['relationships'] = compute_relationship(scene_struct)
+  return objects, scene_struct
+
+def add_fixed_objects(scene_struct,
+                       num_objects,
+                       obj_pos,
+                       max_retries=10,
+                       min_margin=0.01,
+                       min_dist=0.1,
+                       metadata=None):
+  """Add fixed objects to scene struct."""
+  positions = []
+  objects = []
+
+  color_mapping = [('red', '1 0.1 0.1 1'), ('blue', '0.2 0.5 1 1'),
+                    ('green', '0.2 1 0 1'), ('purple', '0.8 0.2 1 1'),
+                    ('cyan', '0.2 1 1 1')]
+  position_mapping = obj_pos
+  rotation_mapping = [0., 0., 0., 0., 0.]
+
+  assert len(color_mapping) >= num_objects
+
+  for i in range(num_objects):
+    size_name = 'large'
+    r = 0.13
+    shape_name = 'sphere'
+    shape = 'sphere'
+    color_name, color = color_mapping[i]
+    mat_name = 'rubber'
+    positions.append(position_mapping[i])
+    theta = rotation_mapping[i]
+    
+    objects.append({
+        'shape': shape,
+        'shape_name': shape_name,
+        'size': size_name,
+        '3d_coords': position_mapping[i],
+        'color_val': color,
+        'color': color_name,
+        'rotation': theta,
+        'material': mat_name,
+    })
   return objects
 
 def add_random_objects(scene_struct,

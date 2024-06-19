@@ -18,7 +18,7 @@
 from __future__ import absolute_import, division, print_function
 from absl import app, flags
 from matplotlib import pyplot as PLT
-from env import ClevrEnv
+from env import ClevrGridEnv
 
 FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan']
@@ -26,7 +26,7 @@ DIRECTIONS = ['left', 'right', 'front', 'behind']
 DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
 
 def main(_):
-  env = ClevrEnv()
+  env = ClevrGridEnv()
   
   description, colors_leftout = env.get_formatted_description()
   print('Descriptions: ', description)
