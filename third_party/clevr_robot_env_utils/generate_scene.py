@@ -19,12 +19,6 @@ import math
 import random
 import numpy as np
 
-# right, left, front, behind
-GRID_DIRECTIONS = {"right": (0.2, 0),
-                   "left": (-0.2, 0),
-                   "front": (0, 0.2),
-                   "behind": (0, -0.2)}
-GRID_OBJ_RADIUS = 0.1
 
 def camera_transformation_from_pose(azimutal, elevation):
   """Output the camera transfromation matrix and inverse matrix."""
@@ -87,12 +81,12 @@ def no_overlap(new_x, new_y, positions, radius):
 def is_within_bounds(x, y, min_dist, max_dist):
   return min_dist <= x <= max_dist and min_dist <= y <= max_dist
 
-def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
+def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_radius=0.1):
   positions = []
   objects = []
   
   # size_mapping = [('small', 0.07), ('medium', 0.1), ('large', 0.13)]
-  size_mapping = [('large', GRID_OBJ_RADIUS)]
+  size_mapping = [('large', grid_obj_radius)]
   # shape_mapping = [('sphere', 'sphere'), ('box', 'cube'),
   #                  ('cylinder', 'cylinder')]
   shape_mapping = [('sphere', 'sphere')]
@@ -101,13 +95,12 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None):
                     ('cyan', '0.2 1 1 1')]
   material_mapping = ['rubber']
   
-  # Directions
-  directions = [(x, y) for x in [0, 0.2, 0.4] for y in [0, 0.2, 0.4] if not (x == 0 and y == 0)]
 
   # Place the first object randomly within bounds
   x = random.uniform(min_dist, max_dist)
   y = random.uniform(min_dist, max_dist)
-  list_grid_dirs = list(GRID_DIRECTIONS.values()) 
+  # allow for spawning objects in a variety of 2 unit x and y directions. 
+  list_grid_dirs = [(x, y) for x in [0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
   
   for i in range(num_objects):
     size_name, r = random.choice(size_mapping)

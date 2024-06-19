@@ -32,7 +32,14 @@ def main(_):
   PLT.imshow(rgb)
   PLT.savefig("test_scene1.png")
   
-  success = env.step_place_object_in_relation(1, DIRECTIONS[0], 2)
+  id1 = 1
+  id2 = 2
+  color1 = env.scene_graph[id1]["color"]
+  color2 = env.scene_graph[id2]["color"]
+  direc = "left"
+  
+  print("Imagine moving the", color1, "ball so that it is one unit", direc, "of the", color2, "ball.")
+  success = env.step_place_object_in_relation(id1, direc, id2)
   print("Did placement succed? ", success)
   
   # description, colors_leftout = env.get_formatted_description()
