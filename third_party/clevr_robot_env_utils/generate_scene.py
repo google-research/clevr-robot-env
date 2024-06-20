@@ -106,7 +106,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_ra
     y = metadata[0][1]
   
   # allow for spawning objects in a variety of 2 unit x and y directions. 
-  list_grid_dirs = [(x, y) for x in [0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
+  list_grid_dirs = [(x, y) for x in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
   
   for i in range(num_objects):
     size_name, r = random.choice(size_mapping)
