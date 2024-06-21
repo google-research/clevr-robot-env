@@ -31,8 +31,8 @@ import numpy as np
 class MujocoEnv(gym.Env):
   """Custom Mujoco environment that uses dm control's wrapper."""
 
-  def __init__(self, model_path, frame_skip, obj_pos, max_episode_steps=None,
-               reward_threshold=None):
+  def __init__(self, model_path, frame_skip, max_episode_steps=None,
+               reward_threshold=None, object_positions=None):
 
     if model_path.startswith('/'):
       fullpath = model_path
@@ -56,8 +56,14 @@ class MujocoEnv(gym.Env):
 
     self.init_qpos = self.physics.data.qpos.ravel().copy()
     self.init_qvel = self.physics.data.qvel.ravel().copy()
-    self.random_start = False
-    observation = self.reset(obj_pos)
+    
+    #TODO: we need to revisit this if statement. Not sure I like that one case is step and the other is reset
+    if(object_positions is None):
+      observation, _, done, _ = self.step(np.zeros(self.physics.model.nu))
+      assert not done
+    else:
+      observation = self.reset(object_positions)
+      
     self.obs_dim = observation.size
 
     bounds = self.physics.model.actuator_ctrlrange.copy()

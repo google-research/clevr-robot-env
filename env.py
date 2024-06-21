@@ -84,67 +84,48 @@ four_cardinal_vectors = np.array(four_cardinal_vectors, dtype=np.float32)
 four_cardinal_vectors_names = ['front', 'behind', 'left', 'right']
 
 
-class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
-  """ClevrEnv."""
-
-  def __init__(self,
-               maximum_episode_steps=100,
-               xml_path=None,
-               metadata_path=None,
-               description_template_path=None,
-               question_template_path=None,
-               num_object=5,
-               agent_type='pm',
-               random_start=False,
-               fixed_objective=True,
-               description_num=15,
-               action_type='continuous',
-               obs_type='direct',
-               use_movement_bonus=False,
-               direct_obs=False,
-               reward_scale=1.0,
-               frame_skip=20,
-               shape_val=0.25,
-               min_move_dist=0.05,
-               resolution=64,
-               use_synonyms=False,
-               min_change_th=0.26,
-               use_polar=False,
-               use_subset_instruction=False,
-               systematic_generalization=False,
-               suppress_other_movement=False,
-               top_down_view=False,
-               variable_scene_content=False):
+class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+  
+  def __init__(self, top_down_view=False):
 
     utils.EzPickle.__init__(self)
-    initial_xml_path = DEFAULT_XML_PATH
+    self.min_dist = -0.5
+    self.max_dist = 0.5
+    self.curr_step = 0
+    metadata_path=None
+    self.frame_skip = 20
+    self.reward_threshold = 0.
+    question_template_path=None
+    description_num=15
+    self.maximum_episode_steps=100
+    self.initial_xml_path = DEFAULT_XML_PATH
     self.obj_name = []
-    self.action_type = action_type
-    self.use_movement_bonus = use_movement_bonus
-    self.direct_obs = direct_obs
-    self.obs_type = obs_type
-    self.num_object = num_object
-    self.variable_scene_content = variable_scene_content
-    self.cache_valid_questions = variable_scene_content
-    self.checker_board = variable_scene_content
-    self.reward_scale = reward_scale
-    self.shape_val = shape_val
-    self.min_move_dist = min_move_dist
-    self.res = resolution
-    self.use_synonyms = use_synonyms
-    self.min_change_th = min_change_th
-    self.use_polar = use_polar
-    self.suppress_other_movement = suppress_other_movement
     # agent type and randomness of starting location
     self.agent_type = agent_type
     self.random_start = random_start
+    self.action_type = 'continuous'
+    self.use_movement_bonus = False
+    self.direct_obs = False
+    self.obs_type = 'direct'
+    self.num_object = 5
+    self.variable_scene_content = False
+    self.cache_valid_questions = False
+    self.checker_board = False
+    self.reward_scale = 1.0
+    self.shape_val = 0.25
+    self.min_move_dist = 0.05
+    self.res = 64
+    self.use_synonyms = False
+    self.min_change_th = 0.26
+    self.use_polar = False
+    self.suppress_other_movement = False
+    self.obj_radius = 0.1
+    self.grid_placement_directions = {"right": (self.obj_radius*2.0, 0),
+                   "left": (self.obj_radius*(-2.0), 0),
+                   "front": (0, self.obj_radius*2.0),
+                   "behind": (0, self.obj_radius*(-2.0))}
 
-    if use_subset_instruction and systematic_generalization:
-      train, test = load_utils.create_systematic_generalization_split()
-    elif use_subset_instruction and not systematic_generalization:
-      train, test = load_utils.create_train_test_question_split()
-    else:
-      train, test = load_utils.load_all_question(), None
+    train, test = load_utils.load_all_question(), None
 
     self.all_questions, self.held_out_questions = train, test
     self.all_question_num = len(self.all_questions)
@@ -166,13 +147,8 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.clevr_metadata['_functions_by_name'] = functions_by_name
 
     # information regarding question template
-    if description_template_path is None:
-      description_template_path = DESCRIPTION_DIST_TEMPLATE
-    if question_template_path is None:
-      question_template_path = QUESTION_DIST_TEMPLATE
-    if self.variable_scene_content:
-      print('loading variable input template')
-      template_path = VARIABLE_OBJ_TEMPLATE
+    description_template_path = DESCRIPTION_DIST_TEMPLATE
+    question_template_path = QUESTION_DIST_TEMPLATE
 
     self.desc_template_num = 0
     self.desc_templates = {}
@@ -200,29 +176,6 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     # sample a random scene and struct
     self.scene_graph, self.scene_struct = self.sample_random_scene()
 
-    # total number of colors and shapes
-    def one_hot_encoding(key_to_idx, max_length):
-      encoding_map = {}
-      for k in key_to_idx:
-        one_hot_vector = [0] * max_length
-        one_hot_vector[key_to_idx[k]] = 1
-        encoding_map[k] = one_hot_vector
-      return encoding_map
-
-    mdata_types = self.clevr_metadata['types']
-    self.color_n = len(mdata_types['Color'])
-    self.color_to_idx = {c: i for i, c in enumerate(mdata_types['Color'])}
-    self.color_to_one_hot = one_hot_encoding(self.color_to_idx, self.color_n)
-    self.shape_n = len(mdata_types['Shape'])
-    self.shape_to_idx = {s: i for i, s in enumerate(mdata_types['Shape'])}
-    self.shape_to_one_hot = one_hot_encoding(self.shape_to_idx, self.shape_n)
-    self.size_n = len(mdata_types['Size'])
-    self.size_to_idx = {s: i for i, s in enumerate(mdata_types['Size'])}
-    self.size_to_one_hot = one_hot_encoding(self.size_to_idx, self.size_n)
-    self.mat_n = len(mdata_types['Material'])
-    self.mat_to_idx = {s: i for i, s in enumerate(mdata_types['Material'])}
-    self.mat_to_one_hot = one_hot_encoding(self.mat_to_idx, self.mat_n)
-
     # generate initial set of description from the scene graph
     self.description_num = description_num
     self.descriptions, self.full_descriptions = None, None
@@ -233,11 +186,11 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     mujoco_env.MujocoEnv.__init__(
         self,
-        initial_xml_path,
-        frame_skip,
-        obj_pos,
-        max_episode_steps=maximum_episode_steps,
-        reward_threshold=0.,
+        self.initial_xml_path,
+        self.frame_skip,
+        max_episode_steps=self.maximum_episode_steps,
+        reward_threshold=self.reward_threshold,
+        object_positions=None
     )
 
     # name of geometries in the scene
@@ -249,18 +202,9 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       for d in DIRECTIONS:
         self.perfect_action_set.append(np.array([i] + d))
 
-    # set discrete action space
-    if self.action_type == 'discrete':
-      self._action_set = DISCRETE_ACTION_SET
-      self.action_space = spaces.Discrete(len(self._action_set))
-    elif self.action_type == 'perfect':
-      self._action_set = self.perfect_action_set
-      self.action_space = spaces.Discrete(len(self._action_set))
-    elif self.action_type == 'continuous':
-      self.action_space = spaces.Box(
+
+    self.action_space = spaces.Box(
           low=-1.0, high=1.1, shape=[4], dtype=np.float32)
-    else:
-      raise ValueError('{} is not a valid action type'.format(action_type))
 
     # setup camera and observation space
     self.camera = mujoco.MovableCamera(self.physics, height=300, width=300)
@@ -271,42 +215,20 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                            camera_pose.azimuth, -90)
     self.camera_setup()
 
-    if self.direct_obs:
-      self.observation_space = spaces.Box(
-          low=np.concatenate(zip([-0.6] * num_object, [-0.4] * num_object)),
-          high=np.concatenate(zip([0.6] * num_object, [0.6] * num_object)),
-          dtype=np.float32)
-    else:
-      self.observation_space = spaces.Box(
+    self.observation_space = spaces.Box(
           low=0, high=255, shape=(self.res, self.res, 3), dtype=np.uint8)
 
     # agent type and randomness of starting location
-    self.agent_type = agent_type
-    self.random_start = random_start
+    self.agent_type = 'pm'
+    self.random_start = False
 
-    if not self.random_start:
-      curr_scene_xml = convert_scene_to_xml(
-          self.scene_graph,
-          agent=self.agent_type,
-          checker_board=self.checker_board)
-    else:
-      random_loc = '{} {} -0.2'.format(
-          random.uniform(-0.6, 0.6), random.uniform(-0.3, 0.5))
-      curr_scene_xml = convert_scene_to_xml(
-          self.scene_graph,
-          agent=self.agent_type,
-          agent_start_loc=random_loc,
-          checker_board=self.checker_board)
+    # if not self.random_start:
+    curr_scene_xml = convert_scene_to_xml(
+        self.scene_graph,
+        agent=self.agent_type,
+        checker_board=self.checker_board)
+
     self.load_xml_string(curr_scene_xml)
-
-    self.valid_questions = []
-
-    # counter for reset
-    self.reset(new_scene_content=True)
-    self.curr_step = 0
-    self.current_goal_text, self.current_goal = self.sample_goal()
-    self.achieved_last_step = []
-    self.achieved_last_step_program = []
     print('CLEVR-ROBOT environment initialized.')
     
   def kinematics_step(self, directions, velocities, time):
@@ -332,6 +254,51 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward_threshold=0.,
     )
     
+
+  def load_xml_string(self, xml_string):
+    """Load the model into physics specified by a xml string."""
+    self.physics.reload_from_xml_string(xml_string)
+
+  def step_place_object_in_relation(self, obj1_id, relation, obj2_id, units=1):
+    
+    # get current object positions
+    obj1_x, obj1_y, obj1_z = self.scene_graph[obj1_id]['3d_coords']
+    obj2_x, obj2_y, obj2_z = self.scene_graph[obj2_id]['3d_coords']
+    
+    # compute desired position
+    if(not (relation in self.grid_placement_directions)):
+      raise NotImplementedError("Relation specified for place object step is not implemented!")
+    
+    obj1_x = obj2_x + self.grid_placement_directions[relation][0]
+    obj1_y = obj2_y + self.grid_placement_directions[relation][1]
+    
+    # check that position is not occupied by another object
+    positions = [obj['3d_coords'] for obj in self.scene_graph]
+    
+    # indicator of success in placement
+    if (gs.no_overlap(obj1_x, obj1_y, positions, self.obj_radius) and gs.is_within_bounds(obj1_x, obj1_y, self.min_dist, self.max_dist)):
+      self.scene_graph[obj1_id]['3d_coords'] = (obj1_x, obj1_y, obj1_z)
+      self.scene_struct['objects'] = self.scene_graph
+      self.scene_struct['relationships'] = gs.compute_relationship(
+          self.scene_struct, use_polar=self.use_polar)
+      
+      # Need descriptions to be updated
+      self._update_description()
+      positions = [obj['3d_coords'] for obj in self.scene_graph]
+      #TODO: any other way than going through init? Seems a bit roundabout.
+      mujoco_env.MujocoEnv.__init__(
+          self,
+          self.initial_xml_path,
+          self.frame_skip,
+          max_episode_steps=self.max_episode_steps,
+          reward_threshold=self.reward_threshold,
+          object_positions=positions
+      )
+      return True
+    else:
+      return False
+ 
+  # TODO: we need to remove unnecessary things here in the step method
   def step(self,
            a,
            record_achieved_goal=False,
@@ -433,233 +400,6 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     return obs, r, done, info
 
-  def teleport(self, loc):
-    """Teleport the agent to loc."""
-    # Location might be 2D because of no vertical movement
-    curr_loc = self.get_body_com('point_mass')[:len(loc)]
-    dsp_vec = loc - curr_loc
-    qpos, qvel = self.physics.data.qpos.copy(), self.physics.data.qvel.copy()
-    qpos[-2:] = qpos[-2:] + dsp_vec
-    qvel[-2:] = np.zeros(2)
-    self.set_state(qpos, qvel)
-
-  def step_discrete(self, a):
-    """Take discrete step by teleporting and then push."""
-    a = int(a)
-    action = self.discrete_action_set[a]
-    new_loc = np.array(action[0])
-    self.teleport(new_loc)
-    self.do_simulation(np.array(action[1]) * 1.1, int(self.frame_skip * 2.0))
-
-  def step_perfect_noi(self, a):
-    """Take a perfect step by teleporting and then push in fixed obj setting."""
-    a = int(a)
-    action = self._action_set[a]
-    obj = action[0]
-    obj_loc = self.get_body_com(self.obj_name[int(obj)])
-    push_start = np.array(obj_loc)[:-1] - 0.15 * action[1:]
-    dsp_vec = push_start - self.get_body_com('point_mass')[:-1]
-    qpos, qvel = self.physics.data.qpos.copy(), self.physics.data.qvel.copy()
-    qpos[-2:] = qpos[-2:] + dsp_vec
-    qvel[-2:] = np.zeros(2)
-    self.set_state(qpos, qvel)
-    self.do_simulation(action[1:] * 1.0, int(self.frame_skip * 2.0))
-
-  def step_perfect_oi(self, a):
-    """Take a perfect step by teleporting and then push in fixed obj setting."""
-    obj_selection, dir_selection = int(a[0]), int(a[1])
-    direction = np.array(DIRECTIONS[dir_selection])
-    obj_loc = self.scene_graph[obj_selection]['3d_coords'][:-1]
-    push_start = np.array(obj_loc) - 0.15 * direction
-    dsp_vec = push_start - self.get_body_com('point_mass')[:-1]
-    qpos, qvel = self.physics.data.qpos.copy(), self.physics.data.qvel.copy()
-    qpos[-2:] = qpos[-2:] + dsp_vec
-    qvel[-2:] = np.zeros(2)
-    self.set_state(qpos, qvel)
-    self.do_simulation(direction * 1.0, int(self.frame_skip * 2.0))
-
-  def step_continuous(self, a):
-    """Take a continuous version of step discrete."""
-    a = np.squeeze(a)
-    x, y, theta, r = a[0] * 0.7, a[1] * 0.7, a[2] * np.pi, a[3]
-    direction = np.array([np.cos(theta), np.sin(theta)]) * 1.2
-    duration = int((r + 1.0) * self.frame_skip * 3.0)
-    new_loc = np.array([x, y])
-    qpos, qvel = self.physics.data.qpos, self.physics.data.qvel
-    qpos[-2:], qvel[-2:] = new_loc, np.zeros(2)
-    self.set_state(qpos, qvel)
-    curr_loc = self.get_body_com('point_mass')
-    dist = [curr_loc - self.get_body_com(name) for name in self.obj_name]
-    dist = np.min(np.linalg.norm(dist, axis=1))
-    self.do_simulation(direction, duration)
-
-  def reset(self, obj_pos=None, new_scene_content=True):
-    if obj_pos:
-      self.scene_graph, self.scene_struct = self.sample_fixed_scene(obj_pos)
-    elif new_scene_content or not self.variable_scene_content:
-      self.scene_graph, self.scene_struct = self.sample_random_scene()
-    else:
-      # randomly perturb existing objects in the scene
-      new_graph = gs.randomly_perturb_objects(self.scene_struct,
-                                              self.scene_graph)
-      self.scene_graph = new_graph
-      self.scene_struct['objects'] = self.scene_graph
-      self.scene_struct['relationships'] = gs.compute_relationship(
-          self.scene_struct)
-
-    # Generate initial set of description from the scene graph.
-    self.descriptions, self.full_descriptions = None, None
-    self._update_description()
-    self.curr_step = 0
-
-    if not self.random_start:
-      curr_scene_xml = convert_scene_to_xml(
-          self.scene_graph,
-          agent=self.agent_type,
-          checker_board=self.checker_board)
-    else:
-      random_loc = '{} {} -0.2'.format(
-          random.uniform(-0.6, 0.6), random.uniform(-0.3, 0.5))
-      curr_scene_xml = convert_scene_to_xml(
-          self.scene_graph,
-          agent=self.agent_type,
-          agent_start_loc=random_loc,
-          checker_board=self.checker_board)
-    self.load_xml_string(curr_scene_xml)
-
-    if self.variable_scene_content and self.cache_valid_questions and new_scene_content:
-      self.valid_questions = self.sample_valid_questions(100)
-      if len(self.valid_questions) < 5:
-        print('rerunning reset because valid question count is small')
-        return self.reset(True)
-      self.current_goal_text, self.current_goal = self.sample_goal()
-
-    self._update_object_description()
-
-    return self.get_obs()
-
-  def get_obs(self):
-    """Returns the state representation of the current scene."""
-    if self.direct_obs and self.obs_type != 'order_invariant':
-      return self.get_direct_obs()
-    elif self.direct_obs and self.obs_type == 'order_invariant':
-      return self.get_order_invariant_obs()
-    else:
-      return self.get_image_obs()
-
-  def get_direct_obs(self):
-    """Returns the direct state observation."""
-    all_pos = np.array([self.get_body_com(name) for name in self.obj_name])
-    has_obj = len(all_pos.shape) > 1
-    all_pos = all_pos[:, :-1] if has_obj else np.zeros(2 * self.num_object)
-    return all_pos.flatten()
-
-  def get_image_obs(self):
-    """Returns the image observation."""
-    frame = self.render(mode='rgb_array')
-    frame = cv2.resize(
-        frame, dsize=(self.res, self.res), interpolation=cv2.INTER_CUBIC)
-    return frame / 255.
-
-  def get_order_invariant_obs(self):
-    """Returns the order invariant observation.
-
-    The returned vector will be a 2D array where the first axis is the object
-    in the scene (which can be varying) and the second axis is the object
-    description. Each object's description contains its x-y location and
-    one-hot representation of its attributes (color, shape etc).
-    """
-    obs = []
-    for obj in self.scene_graph:
-      obj_vec = list(obj['3d_coords'][:-1])
-      obj_vec += self.size_to_one_hot[obj['size']]
-      obj_vec += self.color_to_one_hot[obj['color']]
-      obj_vec += self.mat_to_one_hot[obj['material']]
-      obj_vec += self.shape_to_one_hot[obj['shape']]
-      obs.append(obj_vec)
-    return np.array(obs)
-
-  def get_achieved_goals(self):
-    """Get goal that are achieved from the latest interaction."""
-    return self.achieved_last_step
-
-  def get_achieved_goal_programs(self):
-    """Get goal programs that are achieved from the latest interaction."""
-    return self.achieved_last_step_program
-
-  def set_goal(self, goal_text, goal_program):
-    """Set the goal to be used in standard RL settings."""
-    self.current_goal_text = goal_text
-    self.current_goal = goal_program
-  
-  def sample_fixed_scene(self, obj_pos):
-    """Sample a fixed scene"""
-    return gs.generate_scene_struct(self.c2w, self.num_object, obj_pos)
-
-  def sample_random_scene(self):
-    """Sample a random scene base on current viewing angle."""
-    if self.variable_scene_content:
-      return gs.generate_scene_struct(self.c2w, self.num_object,
-                                      self.clevr_metadata)
-    else:
-      return gs.generate_scene_struct(self.c2w, self.num_object)
-
-  def sample_goal(self):
-    """Sample a currently false statement and its corresponding text."""
-    candidate_objective = self.all_questions
-    if self.cache_valid_questions:
-      candidate_objective = self.valid_questions
-    random.shuffle(candidate_objective)
-    for g, gp in candidate_objective:
-      if not self.answer_question(gp):
-        self.all_goals_satisfied = False
-        return g, gp
-    print('All goal are satisfied.')
-    goal, goal_program = random.choice(candidate_objective)
-    self.all_goals_satisfied = True
-    return goal, goal_program
-
-  def sample_random_action(self):
-    """Sample a random action for the environment."""
-    if self.obs_type == 'order_invariant' and self.action_type == 'perfect':
-      action = [
-          np.random.randint(low=0, high=self.num_object),
-          np.random.randint(low=0, high=len(DIRECTIONS))
-      ]
-      return np.array(action)
-    else:
-      return self.action_space.sample()
-
-  def sample_valid_questions(self, iterations=50):
-    """Sample valid questions for the current scene content."""
-    current_graph = self.scene_graph
-    all_q = []
-    for _ in range(iterations):
-      new_graph = gs.randomly_perturb_objects(self.scene_struct, current_graph)
-      self.scene_struct['objects'] = new_graph
-      self.scene_struct['relationships'] = gs.compute_relationship(
-          self.scene_struct)
-      self._update_description()
-      all_q += self.full_descriptions
-    for q in all_q:
-      for node in q['program']:
-        if '_output' in node:
-          del node['_output']
-    # get question that are unique and can be satisfied
-    unique_and_feasible = {}
-    for q in all_q:
-      q_is_unique = repr(q['program']) not in unique_and_feasible
-      if q['answer'] is True and q_is_unique:
-        unique_and_feasible[repr(q['program'])] = q
-    valid_q = []
-    for q in unique_and_feasible:
-      valid_q.append((unique_and_feasible[q]['question'],
-                      unique_and_feasible[q]['program']))
-    self.scene_struct['objects'] = current_graph
-    self.scene_struct['relationships'] = gs.compute_relationship(
-        self.scene_struct)
-    return valid_q
-
   def answer_question(self, program, all_outputs=False):
     """Answer a functional program on the current scene."""
     return qeng.answer_question({'nodes': program},
@@ -668,18 +408,14 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                                 cache_outputs=False,
                                 all_outputs=all_outputs)
 
-  def convert_order_invariant_to_direct(self, order_invariant_obs):
-    """Converts the order invariant observation to state observation."""
-    return order_invariant_obs[:, :2].flatten()
-
-  def load_xml_string(self, xml_string):
-    """Load the model into physics specified by a xml string."""
-    self.physics.reload_from_xml_string(xml_string)
-
-  def load_xml_path(self, xml_path):
-    """Load the model into physics specified by a xml path."""
-    self.physics.reload_from_xml_path(xml_path)
-
+  def sample_random_scene(self):
+    """Sample a random scene base on current viewing angle."""
+    if self.variable_scene_content:
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object,
+                                      self.clevr_metadata)
+    else:
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object)
+    
   def get_description(self):
     """Update and return the current scene description."""
     self._update_description()
@@ -815,7 +551,6 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     return descriptions
 
-
   def get_formatted_description(self):
     """Get formatted decsription of the current scene for LLM input
     """
@@ -862,15 +597,6 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         instances_per_template=dn,
         use_synonyms=self.use_synonyms)
 
-  def _update_scene(self):
-    """Update the scene description of the current scene."""
-    self.previous_scene_graph = self.scene_graph
-    for i, name in enumerate(self.obj_name):
-      self.scene_graph[i]['3d_coords'] = tuple(self.get_body_com(name))
-    self.scene_struct['objects'] = self.scene_graph
-    self.scene_struct['relationships'] = gs.compute_relationship(
-        self.scene_struct, use_polar=self.use_polar)
-
   def _update_object_description(self):
     """Update the scene description of the current scene."""
     self.obj_description = []
@@ -881,37 +607,38 @@ class ClevrEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       material = obj['material']
       self.obj_description.append(' '.join([color, material, shape]))
 
-  def _get_atomic_object_movements(self, displacement):
-    """Get a list of sentences that describe the movements of object."""
-    atomic_sentence = []
-    for o, d in zip(self.obj_description, displacement):
-      # TODO: this might need to be removed for stacking
-      d_norm = np.linalg.norm(d[:-1])  # not counting height in displacement
-      if d_norm > self.min_move_dist:
-        max_d = np.argmax(np.dot(four_cardinal_vectors, d))
-        atomic_sentence.append(' '.join(
-            [o, 'to', four_cardinal_vectors_names[max_d]]))
-    return atomic_sentence
+  def get_obs(self):
+    return self.get_image_obs()
 
-  def _get_fixed_object(self, answer):
-    """Get the index and location of object that should be fixed in a query."""
-    index, loc = -1, None
-    for i, a in enumerate(answer):
-      if a is True:
-        index = random.choice(answer[i - 1])
-      elif isinstance(a, float) or isinstance(a, int):
-        index = answer[i]
-        break
-    if index >= 0:
-      loc = np.array(self.scene_graph[index]['3d_coords'])[:-1]
-    return index, loc
+  def get_image_obs(self):
+    """Returns the image observation."""
+    frame = self.render(mode='rgb_array')
+    frame = cv2.resize(
+        frame, dsize=(self.res, self.res), interpolation=cv2.INTER_CUBIC)
+    return frame / 255.
 
-  def _get_obj_movement_bonus(self, fixed_obj_idx, displacement_vector):
-    """Get the bonus reward for not moving other object."""
-    del fixed_obj_idx
-    norm = np.linalg.norm(displacement_vector, axis=-1)
-    total_norm = norm.sum()
-    return 0.5 * np.exp(-total_norm * 7)
+  def reset(self, obj_pos=None):
+    
+    if(not(obj_pos is None)):
+      """Reset with a fixed configuration."""
 
-  def _reward(self):
-    return float(self.answer_question(self.current_goal))
+      self.scene_graph, self.scene_struct = gs.generate_fixed_scene_struct(self.c2w, self.num_object, obj_pos)
+
+      # Generate initial set of description from the scene graph.
+      self.descriptions, self.full_descriptions = None, None
+      self._update_description()
+      self.curr_step = 0
+
+      curr_scene_xml = convert_scene_to_xml(
+            self.scene_graph,
+            agent=self.agent_type,
+            checker_board=self.checker_board)
+
+      self.load_xml_string(curr_scene_xml)
+
+      self._update_object_description()
+
+      return self.get_obs()
+    else:
+      
+      raise NotImplementedError("NEED TO IMPLEMEN RANDOM RESET")
