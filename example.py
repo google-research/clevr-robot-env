@@ -39,10 +39,6 @@ def main(_):
   
   env.kinematics_step(directions, velocities, 1)
   
-  # action = env.sample_random_action()
-  
-  # env.step(action)
-  
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
   PLT.savefig('step_1.jpeg')
