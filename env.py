@@ -100,9 +100,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.maximum_episode_steps=100
     self.initial_xml_path = DEFAULT_XML_PATH
     self.obj_name = []
-    # agent type and randomness of starting location
-    self.agent_type = agent_type
-    self.random_start = random_start
     self.action_type = 'continuous'
     self.use_movement_bonus = False
     self.direct_obs = False
@@ -240,7 +237,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       new_coords = [init + disp for init, disp in zip(init_coords, displacement)]
       new_coords_list.append(new_coords)
             
-    self.scene_graph, self.scene_struct = gs.generate_scene_struct(self.c2w, self.num_object, new_coords_list)
+    self.scene_graph, self.scene_struct = gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object, new_coords_list)
     self.scene_struct['relationships'] = gs.compute_relationship(self.scene_struct, use_polar=self.use_polar)
     self._update_description()
     self.curr_step += 1
@@ -249,9 +246,9 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self,
         DEFAULT_XML_PATH,
         20,
-        obj_pos,
         max_episode_steps=100,
         reward_threshold=0.,
+        object_positions=obj_pos
     )
     
 
