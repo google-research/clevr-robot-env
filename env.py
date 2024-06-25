@@ -274,7 +274,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       return False
  
   # TODO: we need to remove unnecessary things here in the step method
-  def step(self,
+  def step_physics(self,
            a,
            record_achieved_goal=False,
            goal=None,
