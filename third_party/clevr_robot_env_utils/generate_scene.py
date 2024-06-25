@@ -97,8 +97,8 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_ra
   
 
   # Place the first object randomly within bounds
-  x = random.uniform(min_dist, max_dist)
-  y = random.uniform(min_dist, max_dist)
+  x = 0 #random.uniform(min_dist, max_dist)
+  y = 0 #random.uniform(min_dist, max_dist)
   # allow for spawning objects in a variety of 2 unit x and y directions. 
   list_grid_dirs = [(x, y) for x in [0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
   
@@ -132,8 +132,8 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_ra
     random.shuffle(list_grid_dirs)
 
     for dx, dy in list_grid_dirs:
-      new_x = last_x + dx
-      new_y = last_y + dy
+      new_x = 2 #last_x + dx
+      new_y = 0 #last_y + dy
       if is_within_bounds(new_x, new_y, min_dist + r, max_dist - r) and no_overlap(new_x, new_y, positions, size_mapping[0][1]):
         break
         
