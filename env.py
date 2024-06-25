@@ -100,11 +100,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.maximum_episode_steps=100
     self.initial_xml_path = DEFAULT_XML_PATH
     self.obj_name = []
-    self.action_type = 'continuous'
+    self.action_type = 'perfect'
     self.use_movement_bonus = False
     self.direct_obs = False
     self.obs_type = 'direct'
-    self.num_object = 5
+    self.num_object = 2
     self.variable_scene_content = False
     self.cache_valid_questions = False
     self.checker_board = False
@@ -216,14 +216,14 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           low=0, high=255, shape=(self.res, self.res, 3), dtype=np.uint8)
 
     # agent type and randomness of starting location
-    self.agent_type = 'pm'
+    self.agent_type = 'pusher'
     self.random_start = False
 
-    # if not self.random_start:
-    curr_scene_xml = convert_scene_to_xml(
-        self.scene_graph,
-        agent=self.agent_type,
-        checker_board=self.checker_board)
+    if not self.random_start:
+      curr_scene_xml = convert_scene_to_xml(
+          self.scene_graph,
+          agent=self.agent_type,
+          checker_board=self.checker_board)
 
     self.load_xml_string(curr_scene_xml)
     print('CLEVR-ROBOT environment initialized.')
@@ -296,7 +296,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       return False
  
   # TODO: we need to remove unnecessary things here in the step method
-  def step(self,
+  def step_physics(self,
            a,
            record_achieved_goal=False,
            goal=None,
@@ -331,26 +331,28 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
       random.shuffle(currently_false)
 
-    if goal:
-      full_answer = self.answer_question(goal, True)
-      g_obj_idx, g_obj_loc = self._get_fixed_object(full_answer)
+    # if goal:
+    #   full_answer = self.answer_question(goal, True)
+    #   g_obj_idx, g_obj_loc = self._get_fixed_object(full_answer)
 
     curr_state = np.array([self.get_body_com(name) for name in self.obj_name])
+    
+    self.step_discrete(a)
 
-    if self.action_type == 'discrete':
-      self.step_discrete(a)
-    elif self.action_type == 'perfect' and self.obs_type != 'order_invariant':
-      self.step_perfect_noi(a)
-    elif self.action_type == 'perfect' and self.obs_type == 'order_invariant':
-      self.step_perfect_oi(a)
-    elif self.action_type == 'continuous':
-      self.step_continuous(a)
+    # if self.action_type == 'discrete':
+    #   self.step_discrete(a)
+    # elif self.action_type == 'perfect' and self.obs_type != 'order_invariant':
+    #   self.step_perfect_noi(a)
+    # elif self.action_type == 'perfect' and self.obs_type == 'order_invariant':
+    #   self.step_perfect_oi(a)
+    # elif self.action_type == 'continuous':
+    #   self.step_continuous(a)
 
     new_state = np.array([self.get_body_com(name) for name in self.obj_name])
     displacement_vector = np.stack(
         [a - b for a, b in zip(curr_state, new_state)])
-    atomic_movement_description = self._get_atomic_object_movements(
-        displacement_vector)
+    # atomic_movement_description = self._get_atomic_object_movements(
+        # displacement_vector)
 
     self.curr_step += 1
     self._update_scene()
@@ -371,31 +373,66 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           self.achieved_last_step.append(q)
           self.achieved_last_step_program.append(p)
 
-    if record_achieved_goal and atomic_goal:
-      self.achieved_last_step += atomic_movement_description
+    # if record_achieved_goal and atomic_goal:
+    #   self.achieved_last_step += atomic_movement_description
 
-    if not goal:
-      r = self._reward()
-    elif not self.suppress_other_movement:
-      g_obj_cur_loc = np.array(self.scene_graph[g_obj_idx]['3d_coords'])[:-1]
-      dispalcement = np.linalg.norm(g_obj_cur_loc - g_obj_loc)
-      r = self.answer_question(goal)
-      r = r and dispalcement < (self.min_change_th + 0.1)
-      r = float(r)
-      if self.use_movement_bonus and atomic_movement_description and r < 1.0:
-        r += self.shape_val
-    else:
-      r = float(self.answer_question(goal))
-      if self.use_movement_bonus and atomic_movement_description and r < 1.0:
-        r += self.shape_val
-      if r >= 1.0:
-        r += self._get_obj_movement_bonus(g_obj_idx, displacement_vector)
+    # if not goal:
+    #   r = self._reward()
+    # if not self.suppress_other_movement:
+    #   g_obj_cur_loc = np.array(self.scene_graph[g_obj_idx]['3d_coords'])[:-1]
+      # dispalcement = np.linalg.norm(g_obj_cur_loc - g_obj_loc)
+      # r = self.answer_question(goal)
+      # r = r and dispalcement < (self.min_change_th + 0.1)
+      # r = float(r)
+      # if self.use_movement_bonus and atomic_movement_description and r < 1.0:
+      #   r += self.shape_val
+    # else:
+    #   r = float(self.answer_question(goal))
+      # if self.use_movement_bonus and atomic_movement_description and r < 1.0:
+      #   r += self.shape_val
+      # if r >= 1.0:
+      #   r += self._get_obj_movement_bonus(g_obj_idx, displacement_vector)
 
     done = self.curr_step >= self.max_episode_steps
 
     obs = self.get_obs()
+    
+    # TODO: Delete this dummy value
+    r = 1
 
     return obs, r, done, info
+  
+  def _update_scene(self):
+    """Update the scene description of the current scene."""
+    self.previous_scene_graph = self.scene_graph
+    for i, name in enumerate(self.obj_name):
+      self.scene_graph[i]['3d_coords'] = tuple(self.get_body_com(name))
+    self.scene_struct['objects'] = self.scene_graph
+    self.scene_struct['relationships'] = gs.compute_relationship(
+        self.scene_struct, use_polar=self.use_polar)
+  
+  def step_discrete(self, a):
+    """Take discrete step by teleporting and then push."""
+    # a = int(a)
+    # action = self.discrete_action_set[a]
+    # new_loc = np.array(a[0])
+    # self.teleport(new_loc)
+    self.do_simulation(list(np.array(a[1]) * 1.1), int(self.frame_skip * 2.0))
+  
+  def step_continuous(self, a):
+    """Take a continuous version of step discrete."""
+    a = np.squeeze(a)
+    x, y, theta, r = a[0] * 0.7, a[1] * 0.7, a[2] * np.pi, a[3]
+    direction = np.array([np.cos(theta), np.sin(theta)]) * 1.2
+    duration = int((r + 1.0) * self.frame_skip * 3.0)
+    new_loc = np.array([x, y])
+    qpos, qvel = self.physics.data.qpos, self.physics.data.qvel
+    qpos[-2:], qvel[-2:] = new_loc, np.zeros(2)
+    self.set_state(qpos, qvel)
+    curr_loc = self.get_body_com('point_mass')
+    dist = [curr_loc - self.get_body_com(name) for name in self.obj_name]
+    dist = np.min(np.linalg.norm(dist, axis=1))
+    self.do_simulation(direction, duration)
 
   def answer_question(self, program, all_outputs=False):
     """Answer a functional program on the current scene."""

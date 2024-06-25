@@ -59,7 +59,7 @@ class MujocoEnv(gym.Env):
     
     #TODO: we need to revisit this if statement. Not sure I like that one case is step and the other is reset
     if(object_positions is None):
-      observation, _, done, _ = self.step(np.zeros(self.physics.model.nu))
+      observation, _, done, _ = self.step_physics(np.zeros(self.physics.model.nu))
       assert not done
     else:
       observation = self.reset(object_positions)
