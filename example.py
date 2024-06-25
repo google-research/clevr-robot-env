@@ -25,6 +25,8 @@ from matplotlib import pyplot as PLT
 
 from env import ClevrGridEnv
 
+import numpy as np
+
 FLAGS = flags.FLAGS
 
 def main(_):
