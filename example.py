@@ -25,40 +25,13 @@ from matplotlib import pyplot as PLT
 
 from env import ClevrGridEnv
 
-import numpy as np
-
 FLAGS = flags.FLAGS
-
-DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1], [0.8, 0.8], [-0.8, 0.8], [0.8, -0.8], [-0.8, -0.8]]
-
 
 def main(_):
   env = ClevrGridEnv()
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
-  PLT.savefig("initial.jpg")
-  # PLT.show()
-  
-  dir_idx = np.random.randint(low=0, high=len(DIRECTIONS))
-  # object = np.random.randint(low=0, high=env.num_object)
-  object = 0
-  force = np.zeros(env.num_object * 2)
-  # force[object * 2] = DIRECTIONS[dir_idx][0]
-  # force[object * 2 + 1] = DIRECTIONS[dir_idx][1]
-  force[object * 2] = 3
-  force[object * 2 + 1] = 0
-  
-  action = [
-    object,
-    force
-  ]
-  
-  env.step_physics(action)
-  
-  rgb = env.render(mode='rgb_array')
-  PLT.imshow(rgb)
-  PLT.savefig("final.jpg")
   PLT.show()
 
 if __name__ == '__main__':
