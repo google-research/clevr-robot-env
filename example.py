@@ -25,12 +25,7 @@ from matplotlib import pyplot as PLT
 
 from env import ClevrGridEnv
 
-import numpy as np
-
 FLAGS = flags.FLAGS
-
-DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1], [0.8, 0.8], [-0.8, 0.8], [0.8, -0.8], [-0.8, -0.8]]
-
 
 def main(_):
   env = ClevrGridEnv()

@@ -86,7 +86,7 @@ four_cardinal_vectors_names = ['front', 'behind', 'left', 'right']
 
 class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   
-  def __init__(self, top_down_view=False):
+  def __init__(self, num_object=5, description_template_path=None, question_template_path=None, collision=False, top_down_view=False):
 
     utils.EzPickle.__init__(self)
     self.min_dist = -0.5
@@ -104,7 +104,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.use_movement_bonus = False
     self.direct_obs = False
     self.obs_type = 'direct'
-    self.num_object = 2
+    self.num_object = num_object
     self.variable_scene_content = False
     self.cache_valid_questions = False
     self.checker_board = False
@@ -144,8 +144,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.clevr_metadata['_functions_by_name'] = functions_by_name
 
     # information regarding question template
-    description_template_path = DESCRIPTION_DIST_TEMPLATE
-    question_template_path = QUESTION_DIST_TEMPLATE
+    if description_template_path is None:
+      description_template_path = DESCRIPTION_DIST_TEMPLATE
+    if question_template_path is None:
+      question_template_path = QUESTION_DIST_TEMPLATE
 
     self.desc_template_num = 0
     self.desc_templates = {}
@@ -171,7 +173,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.w2c, self.c2w = gs.camera_transformation_from_pose(90, -45)
 
     # sample a random scene and struct
-    self.scene_graph, self.scene_struct = self.sample_random_scene()
+    self.scene_graph, self.scene_struct = self.sample_random_scene(collision=collision)
 
     # generate initial set of description from the scene graph
     self.description_num = description_num
@@ -296,7 +298,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       return False
  
   # TODO: we need to remove unnecessary things here in the step method
-  def step_physics(self,
+  def step(self,
            a,
            record_achieved_goal=False,
            goal=None,
@@ -330,29 +332,8 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           false_question_count += 1
 
       random.shuffle(currently_false)
-
-    # if goal:
-    #   full_answer = self.answer_question(goal, True)
-    #   g_obj_idx, g_obj_loc = self._get_fixed_object(full_answer)
-
-    curr_state = np.array([self.get_body_com(name) for name in self.obj_name])
     
     self.step_discrete(a)
-
-    # if self.action_type == 'discrete':
-    #   self.step_discrete(a)
-    # elif self.action_type == 'perfect' and self.obs_type != 'order_invariant':
-    #   self.step_perfect_noi(a)
-    # elif self.action_type == 'perfect' and self.obs_type == 'order_invariant':
-    #   self.step_perfect_oi(a)
-    # elif self.action_type == 'continuous':
-    #   self.step_continuous(a)
-
-    new_state = np.array([self.get_body_com(name) for name in self.obj_name])
-    displacement_vector = np.stack(
-        [a - b for a, b in zip(curr_state, new_state)])
-    # atomic_movement_description = self._get_atomic_object_movements(
-        # displacement_vector)
 
     self.curr_step += 1
     self._update_scene()
@@ -373,34 +354,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           self.achieved_last_step.append(q)
           self.achieved_last_step_program.append(p)
 
-    # if record_achieved_goal and atomic_goal:
-    #   self.achieved_last_step += atomic_movement_description
-
-    # if not goal:
-    #   r = self._reward()
-    # if not self.suppress_other_movement:
-    #   g_obj_cur_loc = np.array(self.scene_graph[g_obj_idx]['3d_coords'])[:-1]
-      # dispalcement = np.linalg.norm(g_obj_cur_loc - g_obj_loc)
-      # r = self.answer_question(goal)
-      # r = r and dispalcement < (self.min_change_th + 0.1)
-      # r = float(r)
-      # if self.use_movement_bonus and atomic_movement_description and r < 1.0:
-      #   r += self.shape_val
-    # else:
-    #   r = float(self.answer_question(goal))
-      # if self.use_movement_bonus and atomic_movement_description and r < 1.0:
-      #   r += self.shape_val
-      # if r >= 1.0:
-      #   r += self._get_obj_movement_bonus(g_obj_idx, displacement_vector)
-
     done = self.curr_step >= self.max_episode_steps
 
     obs = self.get_obs()
     
-    # TODO: Delete this dummy value
-    r = 1
-
-    return obs, r, done, info
+    return obs, 0, done, info
   
   def _update_scene(self):
     """Update the scene description of the current scene."""
@@ -413,11 +371,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   
   def step_discrete(self, a):
     """Take discrete step by teleporting and then push."""
-    # a = int(a)
-    # action = self.discrete_action_set[a]
-    # new_loc = np.array(a[0])
-    # self.teleport(new_loc)
-    self.do_simulation(list(np.array(a[1]) * 1.1), int(self.frame_skip * 2.0))
+    self.do_simulation(list(np.array(a[1]) * 1.1), int(self.frame_skip * 6.0))
   
   def step_continuous(self, a):
     """Take a continuous version of step discrete."""
@@ -442,8 +396,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                                 cache_outputs=False,
                                 all_outputs=all_outputs)
 
-  def sample_random_scene(self):
+  def sample_random_scene(self, collision=False):
     """Sample a random scene base on current viewing angle."""
+    if collision:
+      return gs.generate_fixed_scene_struct(self.c2w, self.num_object,
+                                      obj_pos=[[0, 0, 0.1], [0.2, 0.1, 0.1]])
     if self.variable_scene_content:
       return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object,
                                       self.clevr_metadata)
