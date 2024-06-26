@@ -160,11 +160,6 @@ def convert_scene_to_xml(scene,
                                ('euler', '-1.57 0. 0.')])
 
   set_scene_object(root, world_body, scene)
-  # gripper and actuator
-  # if agent == 'pm':
-  #   set_point_mass(root, world_body, agent_start_loc)
-  # elif agent == 'simple_gripper':
-  #   set_simple_gripper(root, world_body)
 
   return ET.tostring(root)
 
@@ -177,8 +172,6 @@ def set_attribute(node, attribute_pairs):
 def set_scene_object(root, worldbody, scene):
   """Set the xml element of a scene configuration."""
   count = 0
-  # friction_joint_1 = [('name', 'ph1'), ('type', 'free'), ('pos', '0 0 0'),
-  #                     ('damping', '0.75'), ('limited', 'false')]
   geom_attr = [('rgba', '1 1 1 1'), ('type', 'cylinder'),
                ('size', '0.05 0.05 0.05'), ('density', '2'), ('contype', '1'),
                ('conaffinity', '1'), ('material', 'rubber')]
@@ -235,13 +228,7 @@ def set_scene_object(root, worldbody, scene):
 
     set_attribute(wl_joint_actuator_x, actuator_x_attr)
     set_attribute(wl_joint_actuator_y, actuator_y_attr)
-    
-    # geom = ET.SubElement(body_node, 'geom')
-    # set_attribute(geom, geom_attr)
-    # friction
-    # friction_joint_1[0] = ('name', 'obj{}_slide'.format(count))
-    # fr_1 = ET.SubElement(body_node, 'joint')
-    # set_attribute(fr_1, friction_joint_1)
+
     count += 1
 
 
