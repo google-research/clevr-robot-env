@@ -159,12 +159,7 @@ def convert_scene_to_xml(scene,
                                ('rgba', '1.0 1.0 0.5 0.0'),
                                ('euler', '-1.57 0. 0.')])
 
-  set_scene_object(world_body, scene)
-  # gripper and actuator
-  if agent == 'pm':
-    set_point_mass(root, world_body, agent_start_loc)
-  elif agent == 'simple_gripper':
-    set_simple_gripper(root, world_body)
+  set_scene_object(root, world_body, scene)
 
   return ET.tostring(root)
 
@@ -174,11 +169,9 @@ def set_attribute(node, attribute_pairs):
     node.set(k, v)
 
 
-def set_scene_object(worldbody, scene):
+def set_scene_object(root, worldbody, scene):
   """Set the xml element of a scene configuration."""
   count = 0
-  friction_joint_1 = [('name', 'ph1'), ('type', 'free'), ('pos', '0 0 0'),
-                      ('damping', '0.75'), ('limited', 'false')]
   geom_attr = [('rgba', '1 1 1 1'), ('type', 'cylinder'),
                ('size', '0.05 0.05 0.05'), ('density', '2'), ('contype', '1'),
                ('conaffinity', '1'), ('material', 'rubber')]
@@ -189,6 +182,12 @@ def set_scene_object(worldbody, scene):
     body_node.set('name', 'obj{}'.format(count))
     loc_str = ' '.join([str(loc[0]), str(loc[1]), str(-0.325 + loc[2])])
     body_node.set('pos', loc_str)
+    friction_joint_y = [('name', 'obj{}_joint_y'.format(count)), ('type', 'slide'),
+                      ('pos', '0 0 0'), ('axis', '0 1 0'),
+                      ('range', '-10.3213 10.3'), ('damping', '0.5')]
+    friction_joint_x = [('name', 'obj{}_joint_x'.format(count)), ('type', 'slide'),
+                      ('pos', '0 0 0'), ('axis', '1 0 0'),
+                      ('range', '-10.3213 10.3'), ('damping', '0.5')]
     # body geometry
     if shape == 'cylinder':
       geom_attr[2] = ('size',
@@ -211,13 +210,25 @@ def set_scene_object(worldbody, scene):
     if body['material'] == 'metal':
       # metal texture
       geom_attr[6] = ('material', body['color'] + '_metal')
+    wrist_link_geom = ET.SubElement(body_node, 'geom')
+    wrist_link_joint_x = ET.SubElement(body_node, 'joint')
+    wrist_link_joint_y = ET.SubElement(body_node, 'joint')
+    set_attribute(wrist_link_joint_x, friction_joint_x)
+    set_attribute(wrist_link_joint_y, friction_joint_y)
+    set_attribute(wrist_link_geom, geom_attr)
+    
+    actuator = ET.SubElement(root, 'actuator')
+    wl_joint_actuator_x = ET.SubElement(actuator, 'motor')
+    wl_joint_actuator_y = ET.SubElement(actuator, 'motor')
 
-    geom = ET.SubElement(body_node, 'geom')
-    set_attribute(geom, geom_attr)
-    # friction
-    friction_joint_1[0] = ('name', 'obj{}_slide'.format(count))
-    fr_1 = ET.SubElement(body_node, 'joint')
-    set_attribute(fr_1, friction_joint_1)
+    actuator_x_attr = [('joint', 'obj{}_joint_x'.format(count)), ('ctrlrange', '-2.0 2.0'),
+                      ('ctrllimited', 'true')]
+    actuator_y_attr = [('joint', 'obj{}_joint_y'.format(count)), ('ctrlrange', '-2.0 2.0'),
+                      ('ctrllimited', 'true')]
+
+    set_attribute(wl_joint_actuator_x, actuator_x_attr)
+    set_attribute(wl_joint_actuator_y, actuator_y_attr)
+
     count += 1
 
 

@@ -27,15 +27,12 @@ from env import ClevrGridEnv
 
 FLAGS = flags.FLAGS
 
-
 def main(_):
   env = ClevrGridEnv()
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
   PLT.show()
-  
-  # env.step(env.sample_random_action())
 
 if __name__ == '__main__':
   app.run(main)

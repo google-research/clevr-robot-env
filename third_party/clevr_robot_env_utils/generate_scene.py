@@ -152,7 +152,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, metadata=None, grid_obj_ra
 
   return objects
 
-def generate_fixed_scene_struct(c2w, num_object=3, obj_pos=[], metadata=None):
+def generate_fixed_scene_struct(c2w, num_object=3, obj_pos=[]):
   """Generate a fixed scene struct."""
   # This will give ground-truth information about the scene and its objects
   scene_struct = {
@@ -181,7 +181,7 @@ def generate_fixed_scene_struct(c2w, num_object=3, obj_pos=[], metadata=None):
   scene_struct['directions']['below'] = -plane_up
 
   # Now make some random objects
-  objects = add_fixed_objects(scene_struct, num_object, obj_pos, metadata=metadata)
+  objects = add_fixed_objects(scene_struct, num_object, obj_pos)
   scene_struct['objects'] = objects
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct

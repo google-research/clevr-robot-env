@@ -21,7 +21,7 @@ from matplotlib import pyplot as PLT
 from env import ClevrGridEnv
 
 FLAGS = flags.FLAGS
-COLORS = ['red', 'blue', 'green', 'purple', 'cyan']
+COLORS = ['red', 'blue', 'green', 'purple', 'cyan'] 
 DIRECTIONS = ['left', 'right', 'front', 'behind']
 DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
 
@@ -65,6 +65,8 @@ def main(_):
   llm_questions_answers = []
   for i in range(len(llm_questions)):
     llm_questions_answers.append((llm_questions[i][0], questions_answers[llm_questions[i][1]][1]))
+  
+  print(llm_questions_answers)
   
 if __name__ == '__main__':
   app.run(main)
