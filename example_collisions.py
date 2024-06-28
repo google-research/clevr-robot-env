@@ -30,6 +30,7 @@ import os
 
 FLAGS = flags.FLAGS
 
+
 DIRECTION_COORDS = [[1, 0], [0, 1], [-1, 0], [0, -1], [0.8, 0.8], [-0.8, 0.8], [0.8, -0.8], [-0.8, -0.8]]
 COLORS = ['red', 'blue'] # , 'green', 'purple', 'cyan'
 DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
