@@ -32,7 +32,16 @@ def main(_):
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
-  PLT.show()
-
+  PLT.savefig('init.jpeg')
+  
+  directions = [[1, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+  velocities = [1, 0, 0, 0, 0]
+  
+  env.kinematics_step(directions, velocities, 1)
+  
+  rgb = env.render(mode='rgb_array')
+  PLT.imshow(rgb)
+  PLT.savefig('step_1.jpeg')
+  
 if __name__ == '__main__':
   app.run(main)

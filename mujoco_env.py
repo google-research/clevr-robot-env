@@ -56,7 +56,7 @@ class MujocoEnv(gym.Env):
 
     self.init_qpos = self.physics.data.qpos.ravel().copy()
     self.init_qvel = self.physics.data.qvel.ravel().copy()
-
+    
     #TODO: we need to revisit this if statement. Not sure I like that one case is step and the other is reset
     if(object_positions is None):
       observation, r, done, _ = self.step(np.zeros(self.physics.model.nu))

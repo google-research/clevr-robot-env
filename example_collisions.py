@@ -18,7 +18,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from curses import meta
 
 from absl import app
 from absl import flags
@@ -31,7 +30,11 @@ import os
 
 FLAGS = flags.FLAGS
 
-DIRECTIONS = [[1, 0], [0, 1], [-1, 0], [0, -1], [0.8, 0.8], [-0.8, 0.8], [0.8, -0.8], [-0.8, -0.8]]
+
+DIRECTION_COORDS = [[1, 0], [0, 1], [-1, 0], [0, -1], [0.8, 0.8], [-0.8, 0.8], [0.8, -0.8], [-0.8, -0.8]]
+COLORS = ['red', 'blue'] # , 'green', 'purple', 'cyan'
+DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
+DIRECTIONS = ['left', 'right', 'front', 'behind']
 
 def main(_):
   file_dir = os.path.abspath(os.path.dirname(__file__))
@@ -43,16 +46,19 @@ def main(_):
   PLT.imshow(rgb)
   PLT.savefig("initial.jpg")
   
+  description, colors_leftout = env.get_formatted_description()
+  print('Descriptions: ', description)
+  
   print('Initial coordinates:\n', 'Red sphere:', env.scene_struct['objects'][0]['3d_coords'], '\n', 'Blue sphere:', env.scene_struct['objects'][1]['3d_coords'])
   
-  dir_idx = np.random.randint(low=0, high=len(DIRECTIONS))
+  dir_idx = np.random.randint(low=0, high=len(DIRECTION_COORDS))
   # object = np.random.randint(low=0, high=env.num_object)
   object = 0
   force = np.zeros(env.num_object * 2)
-  # force[object * 2] = DIRECTIONS[dir_idx][0]
-  # force[object * 2 + 1] = DIRECTIONS[dir_idx][1]
-  force[object * 2] = 3
-  force[object * 2 + 1] = 3
+  # force[object * 2] = DIRECTION_COORDS[dir_idx][0]
+  # force[object * 2 + 1] = DIRECTION_COORDS[dir_idx][1]
+  force[object * 2] = 0
+  force[object * 2 + 1] = -2
   
   action = [
     object,
@@ -66,7 +72,6 @@ def main(_):
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)
   PLT.savefig("final.jpg")
-  PLT.show()
 
 if __name__ == '__main__':
   app.run(main)

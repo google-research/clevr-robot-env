@@ -181,6 +181,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self._update_description()
     self.obj_description = []
     self._update_object_description()
+    obj_pos = [object["3d_coords"] for object in self.scene_struct["objects"]]
 
     mujoco_env.MujocoEnv.__init__(
         self,
@@ -227,8 +228,31 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           checker_board=self.checker_board)
 
     self.load_xml_string(curr_scene_xml)
-
     print('CLEVR-ROBOT environment initialized.')
+    
+  def kinematics_step(self, directions, velocities, time):
+    new_coords_list = []
+        
+    for obj, direction, velocity in zip(self.scene_struct["objects"], directions, velocities):
+      init_coords = obj["3d_coords"]
+      displacement = [d * velocity * time for d in direction]
+      new_coords = [init + disp for init, disp in zip(init_coords, displacement)]
+      new_coords_list.append(new_coords)
+            
+    self.scene_graph, self.scene_struct = gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object, new_coords_list)
+    self.scene_struct['relationships'] = gs.compute_relationship(self.scene_struct, use_polar=self.use_polar)
+    self._update_description()
+    self.curr_step += 1
+    obj_pos = [item['3d_coords'] for item in self.scene_graph]
+    mujoco_env.MujocoEnv.__init__(
+        self,
+        DEFAULT_XML_PATH,
+        20,
+        max_episode_steps=100,
+        reward_threshold=0.,
+        object_positions=obj_pos
+    )
+    
 
   def load_xml_string(self, xml_string):
     """Load the model into physics specified by a xml string."""
@@ -273,7 +297,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     else:
       return False
  
-  # TODO: we need to remove unnecessary things here in the step method
   def step(self,
            a,
            record_achieved_goal=False,
