@@ -38,7 +38,7 @@ DIRECTIONS = ['left', 'right', 'front', 'behind']
 
 def main(_):
   file_dir = os.path.abspath(os.path.dirname(__file__))
-  env = ClevrGridEnv(num_object=2, description_template_path=os.path.join(
+  env = ClevrGridEnv(clevr_seed=0, mujoco_seed=0, num_object=2, description_template_path=os.path.join(
     file_dir, 'templates/description_distribution_collision.json'), question_template_path=os.path.join(
     file_dir, 'templates/question_distribution_collision.json'), collision=True)
   
@@ -51,7 +51,7 @@ def main(_):
   
   print('Initial coordinates:\n', 'Red sphere:', env.scene_struct['objects'][0]['3d_coords'], '\n', 'Blue sphere:', env.scene_struct['objects'][1]['3d_coords'])
   
-  dir_idx = np.random.randint(low=0, high=len(DIRECTION_COORDS))
+  # dir_idx = np.random.randint(low=0, high=len(DIRECTION_COORDS))
   # object = np.random.randint(low=0, high=env.num_object)
   object = 0
   force = np.zeros(env.num_object * 2)
