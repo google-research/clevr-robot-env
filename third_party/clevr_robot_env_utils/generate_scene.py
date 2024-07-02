@@ -57,10 +57,10 @@ def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, coords=None):
   plane_up /= np.linalg.norm(plane_up)
 
   # Save all six axis-aligned directions in the scene struct
-  scene_struct['directions']['behind'] = plane_behind
-  scene_struct['directions']['front'] = -plane_behind
-  scene_struct['directions']['left'] = plane_left
-  scene_struct['directions']['right'] = -plane_left
+  scene_struct['directions']['South'] = plane_behind
+  scene_struct['directions']['North'] = -plane_behind
+  scene_struct['directions']['West'] = plane_left
+  scene_struct['directions']['East'] = -plane_left
   scene_struct['directions']['above'] = plane_up
   scene_struct['directions']['below'] = -plane_up
 

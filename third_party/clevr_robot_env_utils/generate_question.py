@@ -101,7 +101,7 @@ def instantiate_templates_dfs(scene_struct,
       'next_template_node': 1,
   }
   states = [initial_state]
-  relations = ["behind", "front", "left", "right"]
+  relations = ["North", "South", "West", "East"]
   final_states = []
   while states:
     state = states.pop()
