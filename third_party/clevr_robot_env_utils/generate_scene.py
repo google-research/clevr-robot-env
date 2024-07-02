@@ -388,10 +388,9 @@ def randomly_perturb_objects(scene_struct,
   return objects
 
 
-def compute_relationship(scene_struct, use_polar=False, eps=0.3, max_dist=0.7):
+def compute_relationship(scene_struct, use_polar=False, eps=0.001, max_dist=1):
   """Compute pariwise relationship between objects."""
   all_relationships = {}
-  max_dist_sq = max_dist**2
   for name, direction_vec in scene_struct['directions'].items():
     if name == 'above' or name == 'below':
       continue
@@ -404,17 +403,8 @@ def compute_relationship(scene_struct, use_polar=False, eps=0.3, max_dist=0.7):
           continue
         coords2 = obj2['3d_coords']
         diff = np.array([coords2[k] - coords1[k] for k in [0, 1, 2]])
-        norm = np.linalg.norm(diff)
-        diff /= norm
         dot = sum(diff[k] * direction_vec[k] for k in [0, 1, 2])
-        if use_polar:
-          if dot > 0.71:
-            th = math.sqrt(max_dist_sq * (2. * dot**2 - 1.))
-            qualified = norm < th
-          else:
-            qualified = False
-        else:
-          qualified = dot > eps and norm < max_dist
+        qualified = dot > eps
         if qualified:
           related.add(j)
       all_relationships[name].append(sorted(list(related)))
