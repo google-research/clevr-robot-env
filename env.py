@@ -22,7 +22,6 @@ from __future__ import print_function
 
 import json
 import os
-import random
 import re
 import itertools
 
@@ -36,6 +35,7 @@ import third_party.clevr_robot_env_utils.question_engine as qeng
 
 from utils import load_utils
 from utils.xml_utils import convert_scene_to_xml
+from utils import seeding_utils
 
 import cv2
 import mujoco_env as mujoco_env  # custom mujoco_env
@@ -86,9 +86,11 @@ four_cardinal_vectors_names = ['front', 'behind', 'left', 'right']
 
 class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
   
-  def __init__(self, num_object=5, description_template_path=None, question_template_path=None, collision=False, top_down_view=False):
+  def __init__(self, num_object=5, description_template_path=None, question_template_path=None, collision=False, top_down_view=False, clevr_seed=0, mujoco_seed=1):
 
     utils.EzPickle.__init__(self)
+    self.rng = seeding_utils.create_rng(clevr_seed)
+    self.mujoco_seed = mujoco_seed
     self.min_dist = -0.5
     self.max_dist = 0.5
     self.curr_step = 0
@@ -187,6 +189,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self,
         self.initial_xml_path,
         self.frame_skip,
+        self.mujoco_seed,
         max_episode_steps=self.maximum_episode_steps,
         reward_threshold=self.reward_threshold,
         object_positions=None
@@ -239,7 +242,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       new_coords = [init + disp for init, disp in zip(init_coords, displacement)]
       new_coords_list.append(new_coords)
             
-    self.scene_graph, self.scene_struct = gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object, new_coords_list)
+    self.scene_graph, self.scene_struct = gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.rng, self.num_object, new_coords_list)
     self.scene_struct['relationships'] = gs.compute_relationship(self.scene_struct, use_polar=self.use_polar)
     self._update_description()
     self.curr_step += 1
@@ -248,6 +251,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self,
         DEFAULT_XML_PATH,
         20,
+        self.mujoco_seed,
         max_episode_steps=100,
         reward_threshold=0.,
         object_positions=obj_pos
@@ -289,6 +293,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           self,
           self.initial_xml_path,
           self.frame_skip,
+          self.mujoco_seed,
           max_episode_steps=self.max_episode_steps,
           reward_threshold=self.reward_threshold,
           object_positions=positions
@@ -318,7 +323,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         candidates = self.all_questions
       else:
         candidates = self.valid_questions
-      random.shuffle(candidates)
+      self.rng.shuffle(candidates)
       false_question_count = 0
 
       for q, p in candidates:
@@ -330,7 +335,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
           currently_false.append((q, p, fixed_object_idx, fixed_object_loc))
           false_question_count += 1
 
-      random.shuffle(currently_false)
+      self.rng.shuffle(currently_false)
     
     self.step_discrete(a)
 
@@ -401,10 +406,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       return gs.generate_fixed_scene_struct(self.c2w, self.num_object,
                                       obj_pos=[[0, 0, 0.1], [0.2, 0.1, 0.1]])
     if self.variable_scene_content:
-      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object,
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.rng, self.num_object,
                                       self.clevr_metadata)
     else:
-      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.num_object)
+      return gs.generate_scene_struct(self.c2w, self.min_dist, self.max_dist, self.rng, self.num_object)
     
   def get_description(self):
     """Update and return the current scene description."""
@@ -582,6 +587,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.clevr_metadata,
         self.desc_templates,
         self.ques_templates,
+        self.rng,
         description=True,
         templates_per_image=tn,
         instances_per_template=dn,

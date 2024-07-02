@@ -26,7 +26,7 @@ DIRECTIONS = ['left', 'right', 'front', 'behind']
 DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
 
 def main(_):
-  env = ClevrGridEnv()
+  env = ClevrGridEnv(clevr_seed=0, mujoco_seed=0)
   
   description, colors_leftout = env.get_formatted_description()
   print('Descriptions: ', description)

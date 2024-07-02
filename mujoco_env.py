@@ -31,7 +31,7 @@ import numpy as np
 class MujocoEnv(gym.Env):
   """Custom Mujoco environment that uses dm control's wrapper."""
 
-  def __init__(self, model_path, frame_skip, max_episode_steps=None,
+  def __init__(self, model_path, frame_skip, seed, max_episode_steps=None,
                reward_threshold=None, object_positions=None):
 
     if model_path.startswith('/'):
@@ -78,7 +78,7 @@ class MujocoEnv(gym.Env):
     self.max_episode_steps = max_episode_steps
     self.reward_threshold = reward_threshold
 
-    self.seed()
+    self.seed(seed)
     self.camera_setup()
 
   def seed(self, seed=None):

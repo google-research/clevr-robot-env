@@ -15,7 +15,6 @@ from __future__ import print_function
 
 import json
 import os
-import random
 import re
 import time
 
@@ -40,6 +39,7 @@ def generate_question_from_scene_struct(scene_struct,
                                         metadata,
                                         desc_templates,
                                         ques_templates,
+                                        rng,
                                         description=True,
                                         instances_per_template=20,
                                         templates_per_image=3,
@@ -64,6 +64,7 @@ def generate_question_from_scene_struct(scene_struct,
         template,
         metadata,
         synonyms,
+        rng,
         verbose=False,
         use_synonyms=use_synonyms)
     for t, q, a in zip(ts, qs, ans):
@@ -87,7 +88,7 @@ def generate_question_from_scene_struct(scene_struct,
 def instantiate_templates_dfs(scene_struct,
                               template,
                               metadata,
-                              synonyms,
+                              synonyms, rng,
                               verbose=False,
                               use_synonyms=True):
   param_name_to_type = {p['name']: p['type'] for p in template['params']}
@@ -325,6 +326,7 @@ def instantiate_templates_dfs(scene_struct,
             answer,
             scene_struct,
             metadata,
+            rng,
             unique=unique,
             include_zero=include_zero)
       else:
@@ -347,10 +349,10 @@ def instantiate_templates_dfs(scene_struct,
             # For filter_count add nulls equal to the number of singletons
             num_to_add = sum(
                 1 for k, v in filter_options.items() if len(v) == 1)
-          add_empty_filter_options(filter_options, metadata, num_to_add)
+          add_empty_filter_options(filter_options, metadata, num_to_add, rng)
 
       filter_option_keys = list(filter_options.keys())
-      random.shuffle(filter_option_keys)
+      rng.shuffle(filter_option_keys)
       for k in filter_option_keys:
         new_nodes = []
         cur_next_vals = {k: v for k, v in state['vals'].items()}
@@ -423,7 +425,7 @@ def instantiate_templates_dfs(scene_struct,
       param_name = next_node['side_inputs'][0]
       param_type = param_name_to_type[param_name]
       param_vals = metadata['types'][param_type][:]
-      random.shuffle(param_vals)
+      rng.shuffle(param_vals)
       for val in param_vals:
         input_map = {k: v for k, v in state['input_map'].items()}
         input_map[state['next_template_node']] = len(state['nodes'])
@@ -461,13 +463,13 @@ def instantiate_templates_dfs(scene_struct,
   for state in final_states:
     structured_questions.append(state['nodes'])
     answers.append(state['answer'])
-    text = random.choice(template['text'])
+    text = rng.choice(template['text'])
     for name, val in state['vals'].items():
       if val in synonyms and use_synonyms:
-        val = random.choice(synonyms[val])
+        val = rng.choice(synonyms[val])
       text = text.replace(name, val)
       text = ' '.join(text.split())
-    text = replace_optionals(text)
+    text = replace_optionals(text, rng)
     text = ' '.join(text.split())
     text = other_heuristic(text, state['vals'])
     text_questions.append(text)
@@ -476,7 +478,7 @@ def instantiate_templates_dfs(scene_struct,
 
 
 # =============================================================================
-def replace_optionals(s):
+def replace_optionals(s, rng):
   """
   Each substring of s that is surrounded in square brackets is treated as
   optional and is removed with probability 0.5. For example the string
@@ -500,7 +502,7 @@ def replace_optionals(s):
       break
     i0 = match.start()
     i1 = match.end()
-    if random.random() > 0.5:
+    if rng.random() > 0.5:
       s = s[:i0] + match.groups()[0] + s[i1:]
     else:
       s = s[:i0] + s[i1:]
@@ -558,7 +560,7 @@ def find_filter_options(object_idxs, scene_struct, metadata):
   return attribute_map
 
 
-def add_empty_filter_options(attribute_map, metadata, num_to_add):
+def add_empty_filter_options(attribute_map, metadata, num_to_add, rng):
   # Add some filtering criterion that do NOT correspond to objects
 
   if metadata['dataset'] == 'CLEVR-v1.0':
@@ -572,14 +574,14 @@ def add_empty_filter_options(attribute_map, metadata, num_to_add):
 
   target_size = len(attribute_map) + num_to_add
   while len(attribute_map) < target_size:
-    k = (random.choice(v) for v in attr_vals)
+    k = (rng.choice(v) for v in attr_vals)
     if k not in attribute_map:
       attribute_map[k] = []
 
 
 def find_relate_filter_options(object_idx,
                                scene_struct,
-                               metadata,
+                               metadata, rng,
                                unique=False,
                                include_zero=False,
                                trivial_frac=0.1):
@@ -608,7 +610,7 @@ def find_relate_filter_options(object_idx,
   N, f = len(options), trivial_frac
   num_trivial = int(round(N * f / (1 - f)))
   trivial_options = list(trivial_options.items())
-  random.shuffle(trivial_options)
+  rng.shuffle(trivial_options)
   for k, v in trivial_options[:num_trivial]:
     options[k] = v
 

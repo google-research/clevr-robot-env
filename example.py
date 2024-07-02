@@ -28,7 +28,7 @@ from env import ClevrGridEnv
 FLAGS = flags.FLAGS
 
 def main(_):
-  env = ClevrGridEnv()
+  env = ClevrGridEnv(clevr_seed=0, mujoco_seed=0)
   
   rgb = env.render(mode='rgb_array')
   PLT.imshow(rgb)

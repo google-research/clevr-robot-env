@@ -16,7 +16,6 @@ from __future__ import division
 from __future__ import print_function
 
 import math
-import random
 import numpy as np
 
 
@@ -36,7 +35,7 @@ def camera_transformation_from_pose(azimutal, elevation):
   return r, np.linalg.inv(r)
 
 
-def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, coords=None):
+def generate_scene_struct(c2w, min_dist, max_dist, rng, num_object=3, coords=None):
   """Generate a random scene struct."""
   # This will give ground-truth information about the scene and its objects
   scene_struct = {
@@ -66,7 +65,7 @@ def generate_scene_struct(c2w, min_dist, max_dist, num_object=3, coords=None):
 
   # Now make some random objects
   # objects = add_random_objects(scene_struct, num_object, metadata=metadata)
-  objects = add_objects_grid(num_object, min_dist, max_dist, coords)
+  objects = add_objects_grid(num_object, min_dist, max_dist, rng, coords)
   scene_struct['objects'] = objects
   scene_struct['relationships'] = compute_relationship(scene_struct)
   return objects, scene_struct
@@ -81,7 +80,7 @@ def no_overlap(new_x, new_y, positions, radius):
 def is_within_bounds(x, y, min_dist, max_dist):
   return min_dist <= x <= max_dist and min_dist <= y <= max_dist
 
-def add_objects_grid(num_objects, min_dist, max_dist, coords=None, grid_obj_radius=0.1):
+def add_objects_grid(num_objects, min_dist, max_dist, rng, coords=None, grid_obj_radius=0.1):
   positions = []
   objects = []
   
@@ -101,22 +100,22 @@ def add_objects_grid(num_objects, min_dist, max_dist, coords=None, grid_obj_radi
   list_grid_dirs = [(x, y) for x in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] for y in [-grid_obj_radius*4.0, -grid_obj_radius*2.0, 0, grid_obj_radius*2.0, grid_obj_radius*4.0] if not (x == 0 and y == 0)]
   
   if not coords:
-    x = random.uniform(min_dist, max_dist)
-    y = random.uniform(min_dist, max_dist)
+    x = rng.uniform(min_dist, max_dist)
+    y = rng.uniform(min_dist, max_dist)
   else:
     x = coords[0][0]
     y = coords[0][1]
   
   for i in range(num_objects):
-    size_name, r = random.choice(size_mapping)
-    shape_name, shape = random.choice(shape_mapping)
+    size_name, r = rng.choice(size_mapping)
+    shape_name, shape = rng.choice(shape_mapping)
     color_name, color = color_mapping[i]
-    mat_name = random.choice(material_mapping)
+    mat_name = rng.choice(material_mapping)
     
     # First object
     if i == 0:
       positions.append((x, y, r))
-      theta = 360.0 * random.random()
+      theta = 360.0 * rng.random()
       objects.append({
           'shape': shape,
           'shape_name': shape_name,
@@ -131,7 +130,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, coords=None, grid_obj_radi
       
     last_x, last_y, _ = positions[-1]
     
-    random.shuffle(list_grid_dirs)
+    rng.shuffle(list_grid_dirs)
 
     if not coords:
       for dx, dy in list_grid_dirs:
@@ -144,7 +143,7 @@ def add_objects_grid(num_objects, min_dist, max_dist, coords=None, grid_obj_radi
       new_y = coords[i][1]
         
     positions.append((new_x, new_y, r))
-    theta = 360.0 * random.random()
+    theta = 360.0 * rng.random()
     objects.append({
       'shape': shape,
       'shape_name': shape_name,
@@ -234,7 +233,7 @@ def add_fixed_objects(scene_struct,
   return objects
 
 def add_random_objects(scene_struct,
-                       num_objects,
+                       num_objects, rng,
                        max_retries=10,
                        min_margin=0.01,
                        min_dist=0.1,
@@ -269,15 +268,15 @@ def add_random_objects(scene_struct,
   for i in range(num_objects):
 
     if not metadata:
-      size_name, r = random.choice(size_mapping)
-      shape_name, shape = random.choice(shape_mapping)
+      size_name, r = rng.choice(size_mapping)
+      shape_name, shape = rng.choice(shape_mapping)
       if not metadata:
         color_name, color = color_mapping[i]
       else:
-        color_name, color = random.choice(color_mapping)
-      mat_name = random.choice(material_mapping)
+        color_name, color = rng.choice(color_mapping)
+      mat_name = rng.choice(material_mapping)
     else:
-      idx = random.choice(list(range(len(all_combination))))
+      idx = rng.choice(list(range(len(all_combination))))
       size_tuple, shape_tuple, color_tuple, mat_tuple = all_combination.pop(idx)
       size_name, r = size_tuple
       shape_name, shape = shape_tuple
@@ -288,9 +287,9 @@ def add_random_objects(scene_struct,
     while True:
       num_tries += 1
       if num_tries > max_retries:
-        return add_random_objects(scene_struct, num_objects, metadata=metadata)
-      x = random.uniform(-0.5, 0.5)
-      y = random.uniform(-0.3, 0.5)
+        return add_random_objects(scene_struct, num_objects, rng, metadata=metadata)
+      x = rng.uniform(-0.5, 0.5)
+      y = rng.uniform(-0.3, 0.5)
       dists_good, margins_good = True, True
       for (xx, yy, rr) in positions:
         dx, dy = x - xx, y - yy
@@ -317,7 +316,7 @@ def add_random_objects(scene_struct,
       r /= 1.2
 
     positions.append((x, y, r))
-    theta = 360.0 * random.random()
+    theta = 360.0 * rng.random()
     objects.append({
         'shape': shape,
         'shape_name': shape_name,
@@ -332,7 +331,7 @@ def add_random_objects(scene_struct,
 
 
 def randomly_perturb_objects(scene_struct,
-                             old_objects,
+                             old_objects, rng,
                              max_retries=10,
                              min_margin=0.01,
                              min_dist=0.1):
@@ -352,9 +351,9 @@ def randomly_perturb_objects(scene_struct,
     while True:
       num_tries += 1
       if num_tries > max_retries:
-        return randomly_perturb_objects(scene_struct, old_objects)
-      x = random.uniform(-0.5, 0.5)
-      y = random.uniform(-0.3, 0.5)
+        return randomly_perturb_objects(scene_struct, old_objects, rng)
+      x = rng.uniform(-0.5, 0.5)
+      y = rng.uniform(-0.3, 0.5)
       dists_good, margins_good = True, True
       for (xx, yy, rr) in positions:
         dx, dy = x - xx, y - yy
@@ -375,7 +374,7 @@ def randomly_perturb_objects(scene_struct,
         break
 
     positions.append((x, y, r))
-    theta = 360.0 * random.random()
+    theta = 360.0 * rng.random()
     objects.append({
         'shape': shape,
         'shape_name': shape_name,
