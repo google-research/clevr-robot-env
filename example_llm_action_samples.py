@@ -22,8 +22,8 @@ from env import ClevrGridEnv
 
 FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan']
-DIRECTIONS = ['left', 'right', 'front', 'behind']
-DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
+DIRECTIONS = ['West', 'East', 'South', 'North']
+DIRECT_COMB = [('West', 'South'), ('West', 'North'), ('East', 'South'), ('East', 'North')]
 
 def main(_):
   env = ClevrGridEnv(clevr_seed=0, mujoco_seed=0)

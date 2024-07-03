@@ -56,7 +56,7 @@ def create_systematic_generalization_split():
   """Create systematic generalization split on pregenerated questions."""
   questions = load_all_question(pregen_path)
   filtered_colors = ['red']
-  filtered_direction = ['right', 'behind', 'front', 'left']
+  filtered_direction = ['East', 'North', 'South', 'West']
   test_questions = []
   train_questions = []
   for qp in questions:

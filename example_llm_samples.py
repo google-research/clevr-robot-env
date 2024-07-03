@@ -22,15 +22,15 @@ from env import ClevrGridEnv
 
 FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan'] 
-DIRECTIONS = ['left', 'right', 'front', 'behind']
-DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
+DIRECTIONS = ['West', 'East', 'South', 'North']
+DIRECT_COMB = [('West', 'South'), ('West', 'North'), ('East', 'South'), ('East', 'North')]
 
 def main(_):
   env = ClevrGridEnv(clevr_seed=0, mujoco_seed=0)
   
-  description, colors_leftout = env.get_formatted_description()
+  description = env.get_coordinates_description()
   print('Descriptions: ', description)
-  print('Colors left out: ', colors_leftout)
+  _, colors_leftout = env.get_formatted_description()
   all_questions = env.generate_all_questions(COLORS, DIRECT_COMB, DIRECTIONS)
   
   rgb = env.render(mode='rgb_array')

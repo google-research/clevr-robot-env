@@ -33,8 +33,8 @@ FLAGS = flags.FLAGS
 
 DIRECTION_COORDS = [[1, 0], [0, 1], [-1, 0], [0, -1], [0.8, 0.8], [-0.8, 0.8], [0.8, -0.8], [-0.8, -0.8]]
 COLORS = ['red', 'blue'] # , 'green', 'purple', 'cyan'
-DIRECT_COMB = [('left', 'front'), ('left', 'behind'), ('right', 'front'), ('right', 'behind')]
-DIRECTIONS = ['left', 'right', 'front', 'behind']
+DIRECT_COMB = [('West', 'South'), ('West', 'North'), ('East', 'South'), ('East', 'North')]
+DIRECTIONS = ['West', 'East', 'South', 'North']
 
 def main(_):
   file_dir = os.path.abspath(os.path.dirname(__file__))

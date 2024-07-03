@@ -16,10 +16,10 @@
       "cyan"
     ],
     "Relation":[
-      "left",
-      "right",
-      "behind",
-      "front"
+      "West",
+      "East",
+      "South",
+      "North"
     ],
     "Size":[
       "small",

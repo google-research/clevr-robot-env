@@ -81,7 +81,7 @@ DISCRETE_ACTION_SET = _create_discrete_action_set()
 # TODO: ideally this should be packaged into scene struct
 four_cardinal_vectors = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
 four_cardinal_vectors = np.array(four_cardinal_vectors, dtype=np.float32)
-four_cardinal_vectors_names = ['front', 'behind', 'left', 'right']
+four_cardinal_vectors_names = ['North', 'South', 'West', 'East']
 
 
 class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
@@ -119,10 +119,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     self.use_polar = False
     self.suppress_other_movement = False
     self.obj_radius = 0.1
-    self.grid_placement_directions = {"right": (self.obj_radius*2.0, 0),
-                   "left": (self.obj_radius*(-2.0), 0),
-                   "front": (0, self.obj_radius*2.0),
-                   "behind": (0, self.obj_radius*(-2.0))}
+    self.grid_placement_directions = {"East": (self.obj_radius*2.0, 0),
+                   "West": (self.obj_radius*(-2.0), 0),
+                   "North": (0, self.obj_radius*2.0),
+                   "South": (0, self.obj_radius*(-2.0))}
 
     train, test = load_utils.load_all_question(), None
 
@@ -439,11 +439,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     return program
   
-  def switch_behind_front(self, question):
-    if 'behind' in question:
-      return question.replace('behind', 'front')
-    elif 'front' in question:
-      return question.replace('front', 'behind')
+  def switch_north_south(self, question):
+    if 'South' in question:
+      return question.replace('South', 'North')
+    elif 'North' in question:
+      return question.replace('North', 'South')
     return question
   
   def format_questions(self, questions):
@@ -451,13 +451,13 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     for question_set in questions:
       if len(question_set) == 1:
-        formatted_questions.append(self.switch_behind_front(question_set[0]))
+        formatted_questions.append(self.switch_north_south(question_set[0]))
       elif len(question_set) == 2:
         rel_1 = question_set[0].split(' ')
         rel_2 = question_set[1].split(' ')
         
         combined_question = f"Is there a {rel_1[3]} sphere {rel_1[5]} and {rel_2[5]} of the {rel_1[-2]} sphere?"
-        formatted_questions.append(self.switch_behind_front(combined_question))
+        formatted_questions.append(self.switch_north_south(combined_question))
       else:
         formatted_questions.extend(question_set)
 
@@ -535,10 +535,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         
         description_parts = []
         if x_diff != 0:
-          description_parts.append(f"{abs(x_diff)} unit{'s' if abs(x_diff) > 1 else ''} {'right of' if x_diff > 0 else 'left of'}")
+          description_parts.append(f"{abs(x_diff)} unit{'s' if abs(x_diff) > 1 else ''} {'East of' if x_diff > 0 else 'West of'}")
 
         if y_diff != 0:
-          description_parts.append(f"{abs(y_diff)} unit{'s' if abs(y_diff) > 1 else ''} {'behind' if y_diff > 0 else 'in front of'}")
+          description_parts.append(f"{abs(y_diff)} unit{'s' if abs(y_diff) > 1 else ''} {'North of' if y_diff > 0 else 'South of'}")
 
         if description_parts:
           description = f"The {current_color} sphere is {' and '.join(description_parts)} the {previous_color} sphere."
@@ -558,15 +558,15 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         main_color = match.group(1)
         other_color = match.group(2)
         position = match.group(3)
-        # Switch "behind" and "front" and handle the "of"
-        if position == "behind":
-          return f'There is a {other_color} sphere one unit front of the {main_color} sphere'
-        elif position == "front":
-          return f'There is a {other_color} sphere one unit behind the {main_color} sphere'
-        elif position == "left":
-          return f'There is a {other_color} sphere one unit left of the {main_color} sphere'
-        elif position == "right":
-          return f'There is a {other_color} sphere one unit right of the {main_color} sphere'
+        # Switch "North" and "South" and handle the "of"
+        if position == "South":
+          return f'There is a {other_color} sphere one unit South of the {main_color} sphere'
+        elif position == "North":
+          return f'There is a {other_color} sphere one unit North the {main_color} sphere'
+        elif position == "West":
+          return f'There is a {other_color} sphere one unit West of the {main_color} sphere'
+        elif position == "East":
+          return f'There is a {other_color} sphere one unit East of the {main_color} sphere'
         else:
           return f'There is a {other_color} sphere one unit {position} of the {main_color} sphere'
       return sentence

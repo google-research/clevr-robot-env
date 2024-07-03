@@ -14,7 +14,7 @@
     "Size":          ["large"],
     "SizeValue":     [["large", 0.13]],
     "Material":      ["rubber"],
-    "Relation":      ["left", "right", "behind", "front"]
+    "Relation":      ["West", "East", "South", "North"]
   },
   "functions":[
     {
