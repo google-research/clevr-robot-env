@@ -24,6 +24,7 @@ import json
 import os
 import re
 import itertools
+import random
 
 from gym import spaces
 from gym import utils
@@ -499,16 +500,102 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     not_mentioned_combinations = all_combinations - mentioned_combinations
     return list(not_mentioned_combinations)
   
-  def generate_llm_questions(self, all_questions, colors_leftout):
+  def generate_llm_questions_answers(self, colors, direct_comb, directions, colors_leftout):
+    all_q = self.generate_all_questions(colors, direct_comb, directions) 
+    formatted_q = self.format_questions(all_q)
+    
     filtered_questions = []
-    for idx, question in enumerate(all_questions):
+    for idx, question in enumerate(formatted_q):
       unk_answer = False 
       for color in colors_leftout:
         unk_answer = unk_answer or color[0] in question and color[1] in question
       if unk_answer:
         filtered_questions.append((question, idx))
+      
+    # Get question program  
+    questions_and_programs = []
+    for questions in all_q:
+      program = []
+      for question in questions:
+        program.append(self.get_program_from_question(question))
+      questions_and_programs.append((questions, program))
     
-    return filtered_questions
+    # Answer questions
+    questions_answers = []
+    for q, p in questions_and_programs:
+      answer = True
+      for program in p:
+        answer = answer and self.answer_question(program)
+      questions_answers.append((q, answer))
+    
+    llm_questions_answers = []
+    for i in range(len(filtered_questions)):
+      llm_questions_answers.append((filtered_questions[i][0], questions_answers[filtered_questions[i][1]][1]))
+    
+    return llm_questions_answers
+  
+  def filter_questions_by_number(self, questions_answers, num_true_false_questions):
+    true_q = [q for q in questions_answers if q[1] is True]
+    false_q = [q for q in questions_answers if q[1] is False]
+    
+    if len(true_q) < num_true_false_questions or len(false_q) < num_true_false_questions:
+      return questions_answers
+    
+    selected_true_q = random.sample(true_q, num_true_false_questions)
+    selected_false_q = random.sample(false_q, num_true_false_questions)
+    filtered_array = selected_true_q + selected_false_q
+    random.shuffle(filtered_array)
+    
+    return filtered_array
+  
+  def generate_llm_data(self, data_dict, colors, direct_comb, directions, num_true_false_questions):
+    description, colors_leftout = self.get_coordinates_description() 
+    questions_answers = self.generate_llm_questions_answers(colors, direct_comb, directions, colors_leftout)
+    filtered_questions_answers = self.filter_questions_by_number(questions_answers, num_true_false_questions)
+    data_dict[len(data_dict)] = {'description': description, 'questions': [q[0] for q in filtered_questions_answers], 'answers': [a[1] for a in filtered_questions_answers]}
+    
+    return data_dict
+  
+  def generate_kinematics_data(self):
+    #TODO 
+    return
+    
+  def write_db(self):
+    # TODO
+    return
+    
+    # db = lmdb.open(
+    #   self.processed_path,
+    #   map_size=10*(1024*1024*1024),   # 10GB
+    #   create=True,
+    #   subdir=False,
+    #   readonly=False, # Writable
+    # )
+    # with open(self.index_path, 'rb') as f:
+    #   index = pickle.load(f)
+
+    # num_skipped = 0
+    # with db.begin(write=True, buffers=True) as txn:
+    #   for i, (pocket_fn, ligand_fn, _, rmsd_str) in enumerate(tqdm(index)):
+    #     if pocket_fn is None: continue
+    #     try:
+    #       pocket_dict = PDBProtein(os.path.join(self.raw_path, pocket_fn)).to_dict_atom()
+    #       ligand_dict = parse_sdf_file(os.path.join(self.raw_path, ligand_fn))
+    #       data = ProteinLigandData.from_protein_ligand_dicts(
+    #         protein_dict=torchify_dict(pocket_dict),
+    #         ligand_dict=torchify_dict(ligand_dict),
+    #       )
+    #       data.protein_filename = pocket_fn
+    #       data.ligand_filename = ligand_fn
+    #       txn.put(
+    #         key = str(i).encode(),
+    #         value = pickle.dumps(data)
+    #       )
+    #     except Exception as e:
+    #       num_skipped += 1
+    #       print('Skipping (%d) %s for: %s' % (num_skipped, ligand_fn, e))
+    #       continue
+    # db.close()
   
   def get_coordinates_description(self):
     objects = self.scene_struct['objects']
@@ -543,8 +630,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         if description_parts:
           description = f"The {current_color} sphere is {' and '.join(description_parts)} the {previous_color} sphere."
           descriptions.append(description)
+    
+    colors_leftout = self.get_ambiguous_pairs(descriptions, color_order)
 
-    return descriptions
+    return descriptions, colors_leftout
 
   def get_formatted_description(self):
     """Get formatted decsription of the current scene for LLM input
