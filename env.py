@@ -258,7 +258,6 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward_threshold=0.,
         object_positions=obj_pos
     )
-    
 
   def load_xml_string(self, xml_string):
     """Load the model into physics specified by a xml string."""
