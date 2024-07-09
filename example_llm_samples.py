@@ -18,8 +18,7 @@
 from __future__ import absolute_import, division, print_function
 from absl import app, flags
 from matplotlib import pyplot as PLT
-from env import ClevrGridEnv
-from utils import data_gen_utils
+import tasks
 
 FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan'] 
@@ -30,11 +29,11 @@ NUM_TESTS_PER_TASK = 30
 def main(_):
   data_dict = {}
   
-  # Spatial reasoning task
-  data_dict = data_gen_utils.task_data_generation(NUM_TESTS_PER_TASK, data_dict, COLORS, DIRECT_COMB, DIRECTIONS)
+  # State validation task
+  data_dict = tasks.state_validation_task(NUM_TESTS_PER_TASK, data_dict, COLORS, DIRECT_COMB, DIRECTIONS)
     
   # Kinematics task
-  data_dict = data_gen_utils.task_data_generation(NUM_TESTS_PER_TASK, data_dict, COLORS, DIRECT_COMB, DIRECTIONS, kinematics=True)
+  data_dict = tasks.kinematics_task(NUM_TESTS_PER_TASK, data_dict, COLORS, DIRECT_COMB, DIRECTIONS)
   
 if __name__ == '__main__':
   app.run(main)
