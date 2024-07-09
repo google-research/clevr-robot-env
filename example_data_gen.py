@@ -5,6 +5,8 @@ from absl import app, flags
 from matplotlib import pyplot as PLT
 from env import ClevrGridEnv
 
+import tasks 
+
 from utils import db_utils
 
 FLAGS = flags.FLAGS
@@ -18,19 +20,13 @@ def main(_):
   kinematics_data = {}
   seed = 0
   
-  # Spatial reasoning task
-  for _ in range(NUM_TESTS_PER_TASK):
-    env = ClevrGridEnv(clevr_seed=seed, mujoco_seed=seed) 
-    env.generate_llm_data(state_val_data, COLORS, DIRECT_COMB, DIRECTIONS)
-    seed += 1
+  # State validation task
+  state_val_data = tasks.state_validation_task(NUM_TESTS_PER_TASK, state_val_data, COLORS, DIRECT_COMB, DIRECTIONS)
   db_utils.LLMDataset('state_validation_db', state_val_data)
     
   # Kinematics task
-  for _ in range(NUM_TESTS_PER_TASK):
-    env = ClevrGridEnv(clevr_seed=seed, mujoco_seed=seed)
-    env.generate_llm_data(kinematics_data, COLORS, DIRECT_COMB, DIRECTIONS, kinematics=True)
-    seed += 1
-  db_utils.LLMDataset('kinematics_db', state_val_data)
+  kinematics_data = tasks.kinematics_task(NUM_TESTS_PER_TASK, kinematics_data, COLORS, DIRECT_COMB, DIRECTIONS)
+  db_utils.LLMDataset('kinematics_db', kinematics_data)
 
 if __name__ == '__main__':
   app.run(main)
