@@ -1,16 +1,7 @@
 import lmdb
 import pickle
-
 import os
-import pickle
-import lmdb
-import torch
 from torch.utils.data import Dataset
-from tqdm.auto import tqdm
-
-# from ..protein_ligand import PDBProtein, parse_sdf_file
-# from ..data import ProteinLigandData, torchify_dict
-
 
 class LLMDataset(Dataset):
 
