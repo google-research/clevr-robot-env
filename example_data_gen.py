@@ -14,20 +14,23 @@ DIRECT_COMB = [('West', 'South'), ('West', 'North'), ('East', 'South'), ('East',
 NUM_TESTS_PER_TASK = 2
 
 def main(_):
-  data_dict = {}
+  state_val_data = {}
+  kinematics_data = {}
+  seed = 0
   
   # Spatial reasoning task
   for _ in range(NUM_TESTS_PER_TASK):
-    env = ClevrGridEnv(clevr_seed=len(data_dict), mujoco_seed=len(data_dict)) 
-    env.generate_llm_data(data_dict, COLORS, DIRECT_COMB, DIRECTIONS)
+    env = ClevrGridEnv(clevr_seed=seed, mujoco_seed=seed) 
+    env.generate_llm_data(state_val_data, COLORS, DIRECT_COMB, DIRECTIONS)
+    seed += 1
+  db_utils.LLMDataset('state_validation_db', state_val_data)
     
   # Kinematics task
   for _ in range(NUM_TESTS_PER_TASK):
-    env = ClevrGridEnv(clevr_seed=len(data_dict), mujoco_seed=len(data_dict))
-    env.generate_llm_data(data_dict, COLORS, DIRECT_COMB, DIRECTIONS, kinematics=True)
+    env = ClevrGridEnv(clevr_seed=seed, mujoco_seed=seed)
+    env.generate_llm_data(kinematics_data, COLORS, DIRECT_COMB, DIRECTIONS, kinematics=True)
+    seed += 1
+  db_utils.LLMDataset('kinematics_db', state_val_data)
 
-  
-  db_utils.LLMDataset('db', data_dict)
-  
 if __name__ == '__main__':
   app.run(main)
