@@ -25,6 +25,7 @@ import os
 import re
 import itertools
 import random
+import math
 
 from gym import spaces
 from gym import utils
@@ -440,25 +441,18 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     return program
   
-  def switch_north_south(self, question):
-    if 'South' in question:
-      return question.replace('South', 'North')
-    elif 'North' in question:
-      return question.replace('North', 'South')
-    return question
-  
   def format_questions(self, questions):
     formatted_questions = []
 
     for question_set in questions:
       if len(question_set) == 1:
-        formatted_questions.append(self.switch_north_south(question_set[0]))
+        formatted_questions.append(question_set[0])
       elif len(question_set) == 2:
         rel_1 = question_set[0].split(' ')
         rel_2 = question_set[1].split(' ')
         
         combined_question = f"Is there a {rel_1[3]} sphere {rel_1[5]} and {rel_2[5]} of the {rel_1[-2]} sphere?"
-        formatted_questions.append(self.switch_north_south(combined_question))
+        formatted_questions.append(combined_question)
       else:
         formatted_questions.extend(question_set)
 
@@ -534,68 +528,56 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     
     return llm_questions_answers
   
-  def filter_questions_by_number(self, questions_answers, num_true_false_questions):
+  def filter_questions_by_true(self, questions_answers):
     true_q = [q for q in questions_answers if q[1] is True]
     false_q = [q for q in questions_answers if q[1] is False]
+    num_true_questions = len(true_q)
     
-    if len(true_q) < num_true_false_questions or len(false_q) < num_true_false_questions:
-      return questions_answers
-    
-    selected_true_q = random.sample(true_q, num_true_false_questions)
-    selected_false_q = random.sample(false_q, num_true_false_questions)
-    filtered_array = selected_true_q + selected_false_q
+    selected_false_q = random.sample(false_q, num_true_questions)
+    filtered_array = true_q + selected_false_q
     random.shuffle(filtered_array)
     
     return filtered_array
   
-  def generate_llm_data(self, data_dict, colors, direct_comb, directions, num_true_false_questions):
+  def generate_llm_data(self, data_dict, colors, direct_comb, directions, kinematics=False):
     description, colors_leftout = self.get_coordinates_description() 
+    
+    if kinematics:
+      movement_directions = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+      directions_choices = [[1, 0, 0], [0, 1, 0], [1, 1, 0], [-1, 0, 0], [0, -1, 0], [-1, -1, 0], [1, -1, 0], [-1, 1, 0]]
+      obj_index = random.randint(0, len(directions) - 1)
+      movement_directions[obj_index] = random.choice(directions_choices)
+      velocities  = [0] * self.num_object
+      velocities[obj_index] = 1
+      init_pos = self.scene_struct['objects'][obj_index]['3d_coords']
+      self.kinematics_step(movement_directions, velocities, 1)
+      final_pos = self.scene_struct['objects'][obj_index]['3d_coords']
+      velocity, direction, time = self.get_kinematics_info(init_pos, final_pos, movement_directions[obj_index])
+      
+      description.append('The {} sphere has the velocity {}unit/sec in the direction {} for {} seconds. Objects can pass through each other without touching.'.format(colors[obj_index], velocity, direction, time))
+
     questions_answers = self.generate_llm_questions_answers(colors, direct_comb, directions, colors_leftout)
-    filtered_questions_answers = self.filter_questions_by_number(questions_answers, num_true_false_questions)
+    filtered_questions_answers = self.filter_questions_by_true(questions_answers)
     data_dict[len(data_dict)] = {'description': description, 'questions': [q[0] for q in filtered_questions_answers], 'answers': [a[1] for a in filtered_questions_answers]}
     
     return data_dict
   
-  def generate_kinematics_data(self):
-    #TODO 
-    return
+  def get_kinematics_info(self, init_pos, final_pos, direction):
+    n_seconds = random.randint(1, 5)
+    distance = math.sqrt((final_pos[0] - init_pos[0])**2 + (final_pos[1] - init_pos[1])**2)
+    velocity = round(distance/n_seconds, 2)
+    cardinal_direction = []
     
-  def write_db(self):
-    # TODO
-    return
-    
-    # db = lmdb.open(
-    #   self.processed_path,
-    #   map_size=10*(1024*1024*1024),   # 10GB
-    #   create=True,
-    #   subdir=False,
-    #   readonly=False, # Writable
-    # )
-    # with open(self.index_path, 'rb') as f:
-    #   index = pickle.load(f)
-
-    # num_skipped = 0
-    # with db.begin(write=True, buffers=True) as txn:
-    #   for i, (pocket_fn, ligand_fn, _, rmsd_str) in enumerate(tqdm(index)):
-    #     if pocket_fn is None: continue
-    #     try:
-    #       pocket_dict = PDBProtein(os.path.join(self.raw_path, pocket_fn)).to_dict_atom()
-    #       ligand_dict = parse_sdf_file(os.path.join(self.raw_path, ligand_fn))
-    #       data = ProteinLigandData.from_protein_ligand_dicts(
-    #         protein_dict=torchify_dict(pocket_dict),
-    #         ligand_dict=torchify_dict(ligand_dict),
-    #       )
-    #       data.protein_filename = pocket_fn
-    #       data.ligand_filename = ligand_fn
-    #       txn.put(
-    #         key = str(i).encode(),
-    #         value = pickle.dumps(data)
-    #       )
-    #     except Exception as e:
-    #       num_skipped += 1
-    #       print('Skipping (%d) %s for: %s' % (num_skipped, ligand_fn, e))
-    #       continue
-    # db.close()
+    if direction[1] == 1:
+      cardinal_direction.append('North')
+    elif direction[1] == -1:
+      cardinal_direction.append('South')
+    if direction[0] == 1:
+      cardinal_direction.append('East')
+    elif direction[0] == -1:
+      cardinal_direction.append('West')
+      
+    return velocity, ' '.join(cardinal_direction), n_seconds
   
   def get_coordinates_description(self):
     objects = self.scene_struct['objects']

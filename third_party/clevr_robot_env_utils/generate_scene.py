@@ -178,10 +178,10 @@ def generate_fixed_scene_struct(c2w, num_object=3, obj_pos=[]):
   plane_up /= np.linalg.norm(plane_up)
 
   # Save all six axis-aligned directions in the scene struct
-  scene_struct['directions']['behind'] = plane_behind
-  scene_struct['directions']['front'] = -plane_behind
-  scene_struct['directions']['left'] = plane_left
-  scene_struct['directions']['right'] = -plane_left
+  scene_struct['directions']['South'] = plane_behind
+  scene_struct['directions']['North'] = -plane_behind
+  scene_struct['directions']['West'] = plane_left
+  scene_struct['directions']['East'] = -plane_left
   scene_struct['directions']['above'] = plane_up
   scene_struct['directions']['below'] = -plane_up
 
@@ -297,7 +297,7 @@ def add_random_objects(scene_struct,
         if dist - r - rr < min_dist:
           dists_good = False
           break
-        for direction_name in ['left', 'right', 'front', 'behind']:
+        for direction_name in ['West', 'East', 'North', 'South']:
           direction_vec = scene_struct['directions'][direction_name]
           assert direction_vec[2] == 0
           margin = dx * direction_vec[0] + dy * direction_vec[1]

@@ -24,56 +24,20 @@ FLAGS = flags.FLAGS
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan'] 
 DIRECTIONS = ['West', 'East', 'South', 'North']
 DIRECT_COMB = [('West', 'South'), ('West', 'North'), ('East', 'South'), ('East', 'North')]
-NUM_TESTS_PER_TASK = 2
+NUM_TESTS_PER_TASK = 30
 
 def main(_):
   data_dict = {}
   
-  for i in range(NUM_TESTS_PER_TASK):
-    env = ClevrGridEnv(clevr_seed=0, mujoco_seed=0) 
-    env.generate_llm_data(data_dict, COLORS, DIRECT_COMB, DIRECTIONS, 25)
-  
-  print(len(data_dict))
-  
-  # description = env.get_coordinates_description()
-  # print('Descriptions: ', description)
-  # _, colors_leftout = env.get_formatted_description()
-  # all_questions = env.generate_all_questions(COLORS, DIRECT_COMB, DIRECTIONS)
-  
-  # rgb = env.render(mode='rgb_array')
-  # PLT.imshow(rgb)
-  # PLT.show()
-  
-  # # Get all questions
-  # questions_and_programs = []
-  # for questions in all_questions:
-  #   program = []
-  #   for question in questions:
-  #     program.append(env.get_program_from_question(question))
-  #   questions_and_programs.append((questions, program))
-  
-  # # Answer all questions
-  # questions_answers = []
-  # for q, p in questions_and_programs:
-  #   answer = True
-  #   for program in p:
-  #     answer = answer and env.answer_question(program)
-  #   questions_answers.append((q, answer))
-
-  # # Format question for LLM input
-  # formatted_questions = env.format_questions(all_questions)
-  
-  # all_questions_answers = []
-  # for i in range(len(formatted_questions)):
-  #   all_questions_answers.append((formatted_questions[i], questions_answers[i][1]))
-      
-  # # Get llm questions
-  # llm_questions = env.generate_llm_questions(formatted_questions, colors_leftout)
-  # llm_questions_answers = []
-  # for i in range(len(llm_questions)):
-  #   llm_questions_answers.append((llm_questions[i][0], questions_answers[llm_questions[i][1]][1]))
-  
-  # print(llm_questions_answers)
+  # Spatial reasoning task
+  for _ in range(NUM_TESTS_PER_TASK):
+    env = ClevrGridEnv(clevr_seed=len(data_dict), mujoco_seed=len(data_dict)) 
+    env.generate_llm_data(data_dict, COLORS, DIRECT_COMB, DIRECTIONS)
+    
+  # Kinematics task
+  for _ in range(NUM_TESTS_PER_TASK):
+    env = ClevrGridEnv(clevr_seed=len(data_dict), mujoco_seed=len(data_dict))
+    env.generate_llm_data(data_dict, COLORS, DIRECT_COMB, DIRECTIONS, kinematics=True)
   
 if __name__ == '__main__':
   app.run(main)
