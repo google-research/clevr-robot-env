@@ -2,6 +2,7 @@ import lmdb
 import pickle
 import os
 from torch.utils.data import Dataset
+from pathlib import Path
 
 def create_db(raw_path, data_dict, force_rewrite = False):
     raw_path = raw_path.rstrip('/')
@@ -9,7 +10,9 @@ def create_db(raw_path, data_dict, force_rewrite = False):
     
     if (os.path.exists(db_path)) and (not force_rewrite):
         raise FileExistsError("The DB path specified already exists. You have specified initialization data for it. Proceeding would risk re-writing the DB existing there. If you do not want that DB, please delete it yourself first. Aborting now.")
-        
+    
+    Path(os.path.dirname(raw_path)).mkdir(parents=True, exist_ok=True)
+
     db = lmdb.open(
             db_path,
             map_size=10*(1024*1024*1024),   # 10GB

@@ -10,7 +10,7 @@ from utils import db_utils
 COLORS = ['red', 'blue', 'green', 'purple', 'cyan'] 
 DIRECTIONS = ['West', 'East', 'South', 'North']
 DIRECT_COMB = [('West', 'South'), ('West', 'North'), ('East', 'South'), ('East', 'North')]
-NUM_SCENARIOS_PER_TASK = 2
+NUM_SCENARIOS_PER_TASK = 30
 
 '''
 This script creates our full tasks datasets in the datasets folder.
