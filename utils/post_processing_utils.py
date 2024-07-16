@@ -1,9 +1,27 @@
-import pandas as pd
- 
-def to_csv(all_preds):
-    df = pd.DataFrame(columns=['scene_number', 'question_index', 'predicted_answer', 'ground_truth_answer'])
-    for scene_idx, pred in enumerate(all_preds):
-        description = pred["description"]
-        for q_idx, q in enumerate(pred["questions"]):
-            df.loc[len(df.index)] = [scene_idx, q_idx, pred["answers"][q_idx], pred["ground_truths"][q_idx]]
-    df.to_csv('predictions.csv', encoding='utf-8', index=False)
+import json
+
+def compute_confusion_matrix(file_path):
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+
+    confusion_matrices = []
+
+    for item in data["inputs_and_preds"]:
+        answers = item["answers"]
+        gt = item["gt"]
+
+        true_positives = sum(1 for a, g in zip(answers, gt) if a == g == True)
+        false_positives = sum(1 for a, g in zip(answers, gt) if a == True and g == False)
+        true_negatives = sum(1 for a, g in zip(answers, gt) if a == g == False)
+        false_negatives = sum(1 for a, g in zip(answers, gt) if a == False and g == True)
+
+        confusion_matrix = {
+            "TP": true_positives,
+            "FP": false_positives,
+            "TN": true_negatives,
+            "FN": false_negatives
+        }
+
+        confusion_matrices.append(confusion_matrix)
+
+    return confusion_matrices
