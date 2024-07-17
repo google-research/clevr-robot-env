@@ -7,34 +7,44 @@ from pathlib import Path
 
 
 def create_script(job_spec_dict, path_to_code, model_path, task_db_path, exp_name, seeds_list):
-                
-        script_prelims = """#!/bin/bash
+    
+    if(job_spec_dict["gpu_type"] == ""):
+        gpu_str = "gpu:{}".format(job_spec_dict["num_gpus"])
+    else:
+        gpu_str = "gpu:{}:{}".format(job_spec_dict["gpu_type"], job_spec_dict["num_gpus"])
+        
+    if(job_spec_dict["partition"] != ""):
+        partition_sbatch = "#SBATCH --partition={}".format(job_spec_dict["partition"])
+    else:
+        partition_sbatch = ""
+        
+    script_prelims = """#!/bin/bash
 #SBATCH --job-name={}
 #SBATCH --output={}
 #SBATCH --error={}
 #SBATCH --time={}
 #SBATCH --mem={}
-#SBATCH --gres=gpu:{}:{}""".format(exp_name, job_spec_dict["slurm_out_dir"],
-                                      job_spec_dict["slurm_error_dir"],
-                                      job_spec_dict["time"],
-                                      job_spec_dict["mem"],
-                                      job_spec_dict["gpu_type"],
-                                      job_spec_dict["num_gpus"])
-        script_env_prep = """cd {}
+#SBATCH --gres={}
+{}""".format(exp_name, job_spec_dict["slurm_out_dir"],
+                                    job_spec_dict["slurm_error_dir"],
+                                    job_spec_dict["time"],
+                                    job_spec_dict["mem"],
+                                    gpu_str, partition_sbatch)
+    script_env_prep = """cd {}
 module --quiet purge
 module load python/3.10
 export MUJOCO_GL="osmesa"
 virtualenv $SLURM_TMPDIR/clevrenv
 source $SLURM_TMPDIR/clevrenv/bin/activate
 pip install -r requirements.txt""".format(path_to_code)
-        
-        script_core = '\n'.join(["python run_llm_prediction_experiment.py {} {} {} {}".format(task_db_path,
-                                                            model_path,
-                                                            exp_name,
-                                                            seed) for seed in seeds_list])
-        
-        script = script_prelims + "\n\n" + script_env_prep + "\n\n" + script_core
-        return script
+    
+    script_core = '\n'.join(["python run_llm_prediction_experiment.py {} {} {} {}".format(task_db_path,
+                                                        model_path,
+                                                        exp_name,
+                                                        seed) for seed in seeds_list])
+    
+    script = script_prelims + "\n\n" + script_env_prep + "\n\n" + script_core
+    return script
 
 def get_time_in_seconds(time_str):
     hours, minutes, seconds = time_str.split(':')
