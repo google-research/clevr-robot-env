@@ -40,7 +40,11 @@ class LLMPredictionExperiment:
                                   do_sample = True,
                                   temperature = 0.6,
                                   top_p = 0.9)
-                model_answer = model_out[0][0]["generated_text"][2]["content"]
+                if(model_out[0][0]["generated_text"][2]["content"].lower() == "true"):
+                    model_answer = True
+                else:
+                    model_answer = False
+                    
                 scene_answers.append(model_answer)
                 
             all_preds.append({"description": description,
