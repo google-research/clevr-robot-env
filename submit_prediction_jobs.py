@@ -33,6 +33,7 @@ def create_script(job_spec_dict, path_to_code, model_path, task_db_path, exp_nam
     script_env_prep = """cd {}
 module --quiet purge
 module load python/3.10
+module load cuda/11.8
 export MUJOCO_GL="osmesa"
 virtualenv $SLURM_TMPDIR/clevrenv
 source $SLURM_TMPDIR/clevrenv/bin/activate
