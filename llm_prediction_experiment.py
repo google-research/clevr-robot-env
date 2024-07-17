@@ -45,7 +45,8 @@ class LLMPredictionExperiment:
                 
             all_preds.append({"description": description,
                               "questions": scene_dict["questions"],
-                              "answers": scene_answers})
+                              "gt_answers": scene_dict["answers"],
+                              "pred_answers": scene_answers})
             scene_num += 1
             
         return all_preds
