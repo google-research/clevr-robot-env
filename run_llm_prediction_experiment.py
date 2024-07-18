@@ -19,7 +19,7 @@ def main(model_path, task_db_path, exp_name, seed):
     
     print("Start predictions >>>>")
     pred_qa = exp.predict()
-    results_path = EXPERIMENT_OUT_DIR+"/"+exp_name+"_results.json"
+    results_path = EXPERIMENT_OUT_DIR+"/"+exp_name+"_results_seed_"+str(seed)+".json"
     Path(EXPERIMENT_OUT_DIR).mkdir(parents=True, exist_ok=True)
     
     with open(results_path, 'w') as f:

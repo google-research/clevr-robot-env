@@ -1,0 +1,10 @@
+{
+    "gpu_type": "a100",
+    "num_gpus": 1,
+    "time": "02:59:00",
+    "partition": "",
+    "mem": "16G",
+    "slurm_out_dir":"./slurm_out_dir",
+    "slurm_error_dir":"./slurm_error_dir"
+
+}
