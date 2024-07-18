@@ -25,8 +25,8 @@ def create_script(job_spec_dict, path_to_code, model_path, task_db_path, exp_nam
 #SBATCH --time={}
 #SBATCH --mem={}
 #SBATCH --gres={}
-{}""".format(exp_name, job_spec_dict["slurm_out_dir"],
-                                    job_spec_dict["slurm_error_dir"],
+{}""".format(exp_name, job_spec_dict["slurm_out_dir"] + "/myjob.out",
+                                    job_spec_dict["slurm_error_dir"] + "/myjob.error",
                                     job_spec_dict["time"],
                                     job_spec_dict["mem"],
                                     gpu_str, partition_sbatch)

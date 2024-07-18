@@ -4,7 +4,7 @@
     "time": "00:30:00",
     "partition": "",
     "mem": "16G",
-    "slurm_out_dir":"/home/mila/e/esraa.saleh/scratch/code/clevr_robot_env/slurm_out_dir",
-    "slurm_error_dir":"/home/mila/e/esraa.saleh/scratch/code/clevr_robot_env/slurm_error_dir"
+    "slurm_out_dir":"./slurm_out_dir",
+    "slurm_error_dir":"./slurm_error_dir"
 
 }
