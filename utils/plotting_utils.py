@@ -2,15 +2,15 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-import post_processing_utils
+from utils import post_processing_utils
 
 def plot_confusion_matrix(file_path):
     matrices = post_processing_utils.compute_confusion_matrix(file_path)
     
     for idx, confusion_matrix in enumerate(matrices):
         matrix = np.array([
-            [confusion_matrix["TP"], confusion_matrix["FP"]],
-            [confusion_matrix["FN"], confusion_matrix["TN"]]
+            [confusion_matrix["TP"], confusion_matrix["FN"]],
+            [confusion_matrix["FP"], confusion_matrix["TN"]]
         ])
 
         fig, ax = plt.subplots()
