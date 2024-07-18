@@ -56,9 +56,9 @@ scipy==1.13.0
 six==1.16.0
 sympy==1.12
 tokenizers==0.19.1
-torch==2.3.1+cu118
-torchaudio==2.3.1+cu118
-torchvision==0.18.1+cu118
+torch
+torchaudio
+torchvision
 tqdm==4.66.4
 transformers==4.42.3
 triton==2.3.1

@@ -25,8 +25,8 @@ def create_script(job_spec_dict, path_to_code, model_path, task_db_path, exp_nam
 #SBATCH --time={}
 #SBATCH --mem={}
 #SBATCH --gres={}
-{}""".format(exp_name, job_spec_dict["slurm_out_dir"] + "/myjob.out",
-                                    job_spec_dict["slurm_error_dir"] + "/myjob.error",
+{}""".format(exp_name, job_spec_dict["slurm_out_dir"] + "/slurm_%j.out",
+                                    job_spec_dict["slurm_error_dir"] + "/slurm_%j.error",
                                     job_spec_dict["time"],
                                     job_spec_dict["mem"],
                                     gpu_str, partition_sbatch)
@@ -37,6 +37,7 @@ module load cuda/11.8
 export MUJOCO_GL="osmesa"
 virtualenv $SLURM_TMPDIR/clevrenv
 source $SLURM_TMPDIR/clevrenv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt""".format(path_to_code)
     
     script_core = '\n'.join(["python run_llm_prediction_experiment.py {} {} {} {}".format(task_db_path,
