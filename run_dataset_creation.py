@@ -31,7 +31,7 @@ def main():
     # Kinematics task
     kinematics_data = tasks.kinematics_task(NUM_SCENARIOS_PER_TASK, kinematics_data, COLORS, DIRECT_COMB, DIRECTIONS)
     db_utils.create_db('datasets/kinematics_db', kinematics_data, force_rewrite=False)
-    db_utils.save_images('datasets/scene_renders/kinematics', state_val_data)
+    db_utils.save_images('datasets/scene_renders/kinematics', kinematics_data)
     
   
 

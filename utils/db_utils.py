@@ -44,6 +44,7 @@ def save_images(raw_path, data_dict):
         image_path = os.path.join(raw_path, f'{task_name}_scene_{idx}.png')
         im = Image.fromarray(rgb)
         im.save(image_path)
+        data_dict[idx]['image_path'] = f'{raw_path}/{task_name}_scene_{idx}.png'
 
 
 class LLMDataset(Dataset):
