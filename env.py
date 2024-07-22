@@ -539,7 +539,8 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     return filtered_array
   
   def generate_llm_data(self, data_dict, colors, direct_comb, directions, kinematics=False):
-    description, colors_leftout = self.get_coordinates_description() 
+    description, colors_leftout = self.get_coordinates_description()
+    rgb = self.render(mode='rgb_array')
     
     if kinematics:
       movement_directions = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
@@ -557,7 +558,7 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     questions_answers = self.generate_llm_questions_answers(colors, direct_comb, directions, colors_leftout)
     filtered_questions_answers = self.filter_questions_by_true(questions_answers)
-    data_dict[len(data_dict)] = {'description': description, 'questions': [q[0] for q in filtered_questions_answers], 'answers': [a[1] for a in filtered_questions_answers]}
+    data_dict[len(data_dict)] = {'description': description, 'image': rgb, 'questions': [q[0] for q in filtered_questions_answers], 'answers': [a[1] for a in filtered_questions_answers]}
     
     return data_dict
   

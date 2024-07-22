@@ -3,6 +3,7 @@ import pickle
 import os
 from torch.utils.data import Dataset
 from pathlib import Path
+from PIL import Image
 
 def create_db(raw_path, data_dict, force_rewrite = False):
     raw_path = raw_path.rstrip('/')
@@ -29,6 +30,20 @@ def create_db(raw_path, data_dict, force_rewrite = False):
 
     db.close()
     
+def save_images(raw_path, data_dict):
+    rgbs = []
+    task_name = os.path.basename(raw_path)
+    
+    for idx in range(len(data_dict)): 
+        rgbs.append(data_dict[idx]['image'])
+    
+    if not os.path.exists(raw_path):
+        os.makedirs(raw_path)
+        
+    for idx, rgb in enumerate(rgbs):
+        image_path = os.path.join(raw_path, f'{task_name}_scene_{idx}.png')
+        im = Image.fromarray(rgb)
+        im.save(image_path)
 
 
 class LLMDataset(Dataset):
