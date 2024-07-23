@@ -1,10 +1,31 @@
 import os
 import matplotlib.pyplot as plt
+from matplotlib import colors
 import numpy as np
 
 from utils import post_processing_utils
 from pathlib import Path
 
+def save_confusion_matrix_figure(matrix, plot_title, file_path, std_matrix = None):
+    _, ax = plt.subplots()
+    cmap = colors.ListedColormap(['White'])
+    _ = ax.matshow(matrix, cmap=cmap)
+    plt.title(plot_title)
+
+    ax.set_xticklabels([''] + ['Predicted Positive', 'Predicted Negative'])
+    ax.set_yticklabels([''] + ['Actual Positive', 'Actual Negative'])
+
+    if(std_matrix is None):
+        for (i, j), val in np.ndenumerate(matrix):
+            ax.text(j, i, "M: "+ format(val, '.2f'), ha='center', va='center', color='red')
+    else:
+        #TODO: This part is buggy
+        for (i, j), val, std_val in zip(np.ndenumerate(matrix), np.ndenumerate(std_matrix)):
+            ax.text(j, i, "M: "+ format(val, '.2f') + "SD: " + format(std_val), ha='center', va='center', color='red')
+      
+    plt.savefig(file_path)
+    plt.close()
+    
 def convert_confusion_dict_to_matrix(confusion_matrix):
     
     total_positives = confusion_matrix["TP"] + confusion_matrix["FN"]
@@ -16,7 +37,7 @@ def convert_confusion_dict_to_matrix(confusion_matrix):
         ])
     return matrix
 
-def plot_confusion_matrix(results_dir_path, exp_name, num_scenes=30):
+def plot_avg_confusion_matrix(results_dir_path, num_scenes=30):
     results_per_seed_paths = os.listdir(results_dir_path)
     
     matrices_per_seed = []
@@ -32,24 +53,20 @@ def plot_confusion_matrix(results_dir_path, exp_name, num_scenes=30):
                                                    for seed_idx in range(len(results_per_seed_paths))]), axis=0))
     
     
-    out_dir_path = Path("analysis").joinpath(exp_name)
+    out_dir_path = Path("analysis").joinpath(Path(results_dir_path).name)
     out_dir_path.mkdir(parents=True, exist_ok=True)
     
     for idx, matrix in enumerate(avg_mat_per_scene):
-
-        fig, ax = plt.subplots()
-        cax = ax.matshow(matrix, cmap=plt.cm.Blues)
-        plt.title('Scene {}'.format(idx))
-        fig.colorbar(cax)
-
-        ax.set_xticklabels([''] + ['Predicted Positive', 'Predicted Negative'])
-        ax.set_yticklabels([''] + ['Actual Positive', 'Actual Negative'])
-
-        for (i, j), val in np.ndenumerate(matrix):
-            ax.text(j, i, format(val, '.2f'), ha='center', va='center', color='red')
-        
-        plt.savefig(out_dir_path.joinpath(f"llm_seeds_avg_cm_scene_{idx}.png"))
-        plt.close()
+        plot_title = 'Average Confusion Matrix Across Seeds. Scene {}.'.format(scene_num)
+        file_path = out_dir_path.joinpath(f"llm_seeds_avg_cm_scene_{idx}.png")
+        save_confusion_matrix_figure(matrix=matrix, plot_title=plot_title, file_path=file_path)
+    
+    plot_title = 'Averaged Confusion Matrix Across Seeds Then Scenes'
+    file_path = out_dir_path.joinpath(f"scenes_avg_llm_seeds_avg_cm.png")
+    avg_final_matrix = np.mean(np.array(avg_mat_per_scene), axis=0)
+    std_final_matrix = np.std(np.array(avg_mat_per_scene), axis=0)
+    
+    save_confusion_matrix_figure(matrix=avg_final_matrix, plot_title=plot_title, file_path=file_path)
 
 
 # # TODO: we want variation across llm seeds per scene not the other way around
