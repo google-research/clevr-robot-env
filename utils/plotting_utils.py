@@ -19,10 +19,9 @@ def save_confusion_matrix_figure(matrix, plot_title, file_path, std_matrix = Non
         for (i, j), val in np.ndenumerate(matrix):
             ax.text(j, i, "M: "+ format(val, '.2f'), ha='center', va='center', color='red')
     else:
-        #TODO: This part is buggy
-        for (i, j), val, std_val in zip(np.ndenumerate(matrix), np.ndenumerate(std_matrix)):
-            ax.text(j, i, "M: "+ format(val, '.2f') + "SD: " + format(std_val), ha='center', va='center', color='red')
-      
+        for ((i, j), val), ((_,_), std_val) in zip(np.ndenumerate(matrix), np.ndenumerate(std_matrix)):
+            ax.text(j, i, "M: % "+ format(val, '.2f') + ", SD: " + format(std_val, '.2f'), ha='center', va='center', color='red')
+
     plt.savefig(file_path)
     plt.close()
     
@@ -66,7 +65,7 @@ def plot_avg_confusion_matrix(results_dir_path, num_scenes=30):
     avg_final_matrix = np.mean(np.array(avg_mat_per_scene), axis=0)
     std_final_matrix = np.std(np.array(avg_mat_per_scene), axis=0)
     
-    save_confusion_matrix_figure(matrix=avg_final_matrix, plot_title=plot_title, file_path=file_path)
+    save_confusion_matrix_figure(matrix=avg_final_matrix, plot_title=plot_title, file_path=file_path, std_matrix=std_final_matrix)
 
 
 # # TODO: we want variation across llm seeds per scene not the other way around
