@@ -538,11 +538,16 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     
     return filtered_array
   
-  def generate_llm_data(self, data_dict, colors, direct_comb, directions, kinematics=False):
+  
+  def generate_llm_data(self, data_dict, colors, direct_comb, directions, step_type=None):
+    
+    if(step_type != "kinematic" or step_type != "teleport" or not(step_type is None)):
+      raise ValueError("step_type must be either kinematic, teleport or None")
+    
     description, colors_leftout = self.get_coordinates_description()
     rgb = self.render(mode='rgb_array')
     
-    if kinematics:
+    if step_type == "kinematic":
       movement_directions = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
       directions_choices = [[1, 0, 0], [0, 1, 0], [1, 1, 0], [-1, 0, 0], [0, -1, 0], [-1, -1, 0], [1, -1, 0], [-1, 1, 0]]
       obj_index = random.randint(0, len(directions) - 1)
@@ -555,7 +560,10 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       velocity, direction, time = self.get_kinematics_info(init_pos, final_pos, movement_directions[obj_index])
       
       description.append('The {} sphere has the velocity {}unit/sec in the direction {} for {} seconds. Objects can pass through each other without touching.'.format(colors[obj_index], velocity, direction, time))
-
+    
+    elif(step_type == "teleport"):
+      raise NotImplementedError
+ 
     questions_answers = self.generate_llm_questions_answers(colors, direct_comb, directions, colors_leftout)
     filtered_questions_answers = self.filter_questions_by_true(questions_answers)
     data_dict[len(data_dict)] = {'description': description, 'image': rgb, 'questions': [q[0] for q in filtered_questions_answers], 'answers': [a[1] for a in filtered_questions_answers]}
