@@ -18,6 +18,7 @@ This script creates our full tasks datasets in the datasets folder.
 
 def main():
     state_val_data = {}
+    teleport_action_data = {}
     kinematics_data = {}
 
     # State validation task
@@ -26,10 +27,9 @@ def main():
     db_utils.save_images('datasets/scene_renders/state_validation', state_val_data)
 
     # State after Action task
-    # TODO: integrate with the new code style
-    teleport_action_data = tasks.teleport_action_task(NUM_SCENARIOS_PER_TASK, state_val_data, COLORS, DIRECT_COMB, DIRECTIONS)
-    # db_utils.create_db('datasets/teleport_action_db', teleport_action_data, force_rewrite=False) 
-    # db_utils.save_images('datasets/scene_renders/teleport_action', teleport_action_data)
+    teleport_action_data = tasks.teleport_action_task(NUM_SCENARIOS_PER_TASK, teleport_action_data, COLORS, DIRECT_COMB, DIRECTIONS)
+    db_utils.create_db('datasets/teleport_action_db', teleport_action_data, force_rewrite=False) 
+    db_utils.save_images('datasets/scene_renders/teleport_action', teleport_action_data)
 
     # Kinematics task
     kinematics_data = tasks.kinematics_task(NUM_SCENARIOS_PER_TASK, kinematics_data, COLORS, DIRECT_COMB, DIRECTIONS)

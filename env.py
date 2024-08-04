@@ -539,10 +539,11 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     return filtered_array
   
   
-  def generate_llm_data(self, data_dict, colors, direct_comb, directions, step_type=None):
+  def generate_llm_data(self, data_dict, colors, direct_comb, directions, step_type="no_step", max_tries=100):
     
-    if(step_type != "kinematic" or step_type != "teleport" or not(step_type is None)):
-      raise ValueError("step_type must be either kinematic, teleport or None")
+    
+    if(step_type != "kinematic" and step_type != "teleport" and step_type != "no_step"):
+      raise ValueError("step_type must be either kinematic, teleport or no_step")
     
     description, colors_leftout = self.get_coordinates_description()
     rgb = self.render(mode='rgb_array')
@@ -562,8 +563,25 @@ class ClevrGridEnv(mujoco_env.MujocoEnv, utils.EzPickle):
       description.append('The {} sphere has the velocity {}unit/sec in the direction {} for {} seconds. Objects can pass through each other without touching.'.format(colors[obj_index], velocity, direction, time))
     
     elif(step_type == "teleport"):
-      raise NotImplementedError
- 
+            
+      placed = False
+      tries = 0
+      while((not placed) and (tries < max_tries)):
+        # choose two random objects
+        obj1_idx, obj2_idx = self.rng.sample(list(range(len(self.scene_graph))), 2)
+      
+        # choose random relation
+        actions = list(self.grid_placement_directions.keys())
+        relation = self.rng.sample(actions, 1)[0]
+        
+        # try to make it so that obj1 is placed in relation to obj 2.
+        placed = self.step_place_object_in_relation(obj1_idx, relation, obj2_idx) 
+        
+        tries += 1
+      
+      if(tries == max_tries):
+        raise NotImplementedError("TODO: Need to deal with the low chance of tries not being enough for a teleport action placement!")
+       
     questions_answers = self.generate_llm_questions_answers(colors, direct_comb, directions, colors_leftout)
     filtered_questions_answers = self.filter_questions_by_true(questions_answers)
     data_dict[len(data_dict)] = {'description': description, 'image': rgb, 'questions': [q[0] for q in filtered_questions_answers], 'answers': [a[1] for a in filtered_questions_answers]}
